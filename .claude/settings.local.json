@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Read(//tmp/**)",
+      "Bash(php -r 'require '\\\\''vendor/autoload.php'\\\\''; $app = require '\\\\''bootstrap/app.php'\\\\''; $kernel = $app->make\\(Illuminate\\\\Contracts\\\\Console\\\\Kernel::class\\); $kernel->bootstrap\\(\\); $bot = $app->make\\(App\\\\Services\\\\Telegram\\\\TelegramBot::class\\); echo $bot->unauthorizedReply\\(\\).PHP_EOL.'\\\\''---'\\\\''.PHP_EOL.$bot->linkedReply\\(\\).PHP_EOL.'\\\\''---'\\\\''.PHP_EOL; $parser = new App\\\\Services\\\\Telegram\\\\MessageParser\\(\\); print_r\\($parser->parse\\('\\\\''keluar 20.000 makan siang via Bank BCA'\\\\''\\)\\); print_r\\($parser->parse\\('\\\\''masuk 50rb gaji freelance via DANA'\\\\''\\)\\); print_r\\($parser->parse\\('\\\\''saldo'\\\\''\\)\\); print_r\\($parser->parse\\('\\\\''/bantuan'\\\\''\\)\\); print_r\\($parser->parse\\('\\\\''keluar abc via cash'\\\\''\\)\\); print_r\\($parser->parse\\('\\\\''keluar 25000 kopi'\\\\''\\)\\);')",
+      "Bash(php -r 'require '\\\\''vendor/autoload.php'\\\\''; $p = new App\\\\Services\\\\Telegram\\\\MessageParser\\(\\); foreach \\(['\\\\''masuk Rp 25.000 kopi via Cash'\\\\'', '\\\\''keluar rp20000 jajan via gopay'\\\\'', '\\\\''keluar 20.000 makan siang via Bank BCA'\\\\''] as $m\\) { print_r\\($p->parse\\($m\\)\\); }')",
+      "Bash(php -r 'require '\\\\''vendor/autoload.php'\\\\''; $p = new App\\\\Services\\\\Telegram\\\\MessageParser\\(\\); foreach \\(['\\\\''tagihan'\\\\'','\\\\''lunas 12 via Cash'\\\\'','\\\\''transfer 50rb dari BCA ke DANA'\\\\'','\\\\''transfer 100000 BCA ke Cash'\\\\'','\\\\''/ringkasan minggu'\\\\'','\\\\''/ringkasan bulan'\\\\'','\\\\''/top'\\\\'','\\\\''kategori'\\\\''] as $m\\) { print_r\\($p->parse\\($m\\)\\); }')",
+      "Bash(php artisan *)",
+      "Bash(npm run *)",
+      "Bash(./vendor/bin/phpunit tests/Feature/WalletTransferTest.php)",
+      "Bash(php -l \"app/Http/Controllers/TransactionController.php\")",
+      "Bash(php -l \"app/Http/Controllers/WalletController.php\")"
+    ]
+  }
+}

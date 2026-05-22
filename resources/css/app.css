@@ -1,0 +1,254 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    html {
+        scroll-behavior: smooth;
+        font-size: 14px;
+    }
+
+    @media (min-width: 640px) {
+        html {
+            font-size: 15px;
+        }
+    }
+
+    @media (min-width: 1024px) {
+        html {
+            font-size: 16px;
+        }
+    }
+
+    body {
+        background: #f5f7fb;
+        color: #0f172a;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    h1, h2, h3, h4 {
+        letter-spacing: -0.01em;
+    }
+}
+
+@layer components {
+    .swal2-fintrack-popup {
+        @apply rounded-3xl border border-slate-100 bg-white px-6 pb-6 pt-7 font-sans shadow-2xl shadow-slate-900/10;
+    }
+
+    .swal2-fintrack-title {
+        @apply text-xl font-bold tracking-tight text-slate-950;
+    }
+
+    .swal2-fintrack-text {
+        @apply text-sm leading-6 text-slate-500;
+    }
+
+    .swal2-fintrack-actions {
+        @apply mt-6 flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end;
+        display: flex !important;
+    }
+
+    .swal2-fintrack-confirm,
+    .swal2-fintrack-cancel {
+        align-items: center !important;
+        border-radius: 1rem !important;
+        display: inline-flex !important;
+        font-size: 0.875rem !important;
+        font-weight: 700 !important;
+        justify-content: center !important;
+        line-height: 1.25rem !important;
+        margin: 0 !important;
+        min-width: 7rem !important;
+        padding: 0.625rem 1.25rem !important;
+    }
+
+    .swal2-fintrack-confirm {
+        @apply bg-primary-600 text-white shadow-lg shadow-primary-600/20 transition hover:bg-primary-700;
+        border: 1px solid transparent !important;
+        color: #ffffff !important;
+    }
+
+    .swal2-fintrack-danger {
+        @apply bg-rose-600 shadow-rose-600/20 hover:bg-rose-700;
+        background-color: #e11d48 !important;
+    }
+
+    .swal2-fintrack-cancel {
+        @apply border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50;
+        background-color: #ffffff !important;
+        border-color: #e2e8f0 !important;
+        color: #334155 !important;
+    }
+
+    .swal2-fintrack-toast {
+        @apply rounded-2xl border border-slate-100 bg-white font-sans shadow-xl shadow-slate-900/10;
+    }
+
+    .swal2-fintrack-toast-title {
+        @apply text-sm font-bold text-slate-900;
+    }
+
+    .swal2-popup .swal2-actions {
+        display: flex !important;
+        flex-direction: column-reverse !important;
+        gap: 0.5rem !important;
+        width: 100% !important;
+    }
+
+    .swal2-popup .swal2-actions .swal2-confirm,
+    .swal2-popup .swal2-actions .swal2-cancel {
+        align-items: center !important;
+        border-radius: 1rem !important;
+        display: inline-flex !important;
+        font-size: 0.875rem !important;
+        font-weight: 700 !important;
+        justify-content: center !important;
+        line-height: 1.25rem !important;
+        margin: 0 !important;
+        min-width: 7rem !important;
+        padding: 0.625rem 1.25rem !important;
+    }
+
+    .swal2-popup .swal2-actions .swal2-confirm {
+        background-color: #e11d48 !important;
+        border: 1px solid transparent !important;
+        box-shadow: 0 10px 15px -3px rgb(225 29 72 / 0.2), 0 4px 6px -4px rgb(225 29 72 / 0.2) !important;
+        color: #ffffff !important;
+    }
+
+    .swal2-popup .swal2-actions .swal2-cancel {
+        background-color: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        color: #334155 !important;
+    }
+
+    @media (min-width: 640px) {
+        .swal2-popup .swal2-actions {
+            flex-direction: row !important;
+            justify-content: flex-end !important;
+        }
+    }
+
+    .surface-card {
+        @apply min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm;
+    }
+
+    .surface-card-padded {
+        @apply min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6;
+    }
+
+    .stat-card {
+        @apply relative min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition duration-300 sm:p-6;
+    }
+
+    .stat-card-featured {
+        @apply border-primary-700 bg-primary-700 text-white shadow-primary-900/20;
+    }
+
+    .form-input,
+    .form-select,
+    .form-textarea {
+        @apply block w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500;
+    }
+
+    .label-tiny {
+        @apply text-[11px] font-semibold uppercase tracking-wide text-slate-500;
+    }
+
+    .badge-soft {
+        @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase;
+    }
+
+    .scroll-x {
+        @apply max-w-full overflow-x-auto scrollbar-thin;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-inline: contain;
+    }
+
+    .page-shell {
+        @apply px-4 py-6 sm:px-6 sm:py-8 lg:px-8;
+    }
+
+    .page-container {
+        @apply mx-auto max-w-7xl space-y-6;
+    }
+}
+
+@layer utilities {
+    .animate-in {
+        animation: fade-up 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .animate-in-delay-1 {
+        animation: fade-up 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.08s both;
+    }
+
+    .animate-in-delay-2 {
+        animation: fade-up 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.16s both;
+    }
+
+    .animate-in-delay-3 {
+        animation: fade-up 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.24s both;
+    }
+
+    .animate-soft-pulse {
+        animation: soft-pulse 2.6s ease-in-out infinite;
+    }
+
+    .animate-bar {
+        transform-origin: bottom;
+        animation: grow-bar 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+
+    .glass-line {
+        background-image:
+            linear-gradient(120deg, rgba(37, 99, 235, 0.18), transparent 38%),
+            repeating-linear-gradient(110deg, rgba(96, 165, 250, 0.09) 0 1px, transparent 1px 22px);
+    }
+
+    .scrollbar-thin {
+        scrollbar-width: thin;
+    }
+
+    .scrollbar-thin::-webkit-scrollbar {
+        height: 6px;
+        width: 6px;
+    }
+
+    .scrollbar-thin::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.4);
+        border-radius: 999px;
+    }
+}
+
+@keyframes fade-up {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes grow-bar {
+    from {
+        transform: scaleY(0.08);
+    }
+    to {
+        transform: scaleY(1);
+    }
+}
+
+@keyframes soft-pulse {
+    0%, 100% {
+        opacity: 0.7;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.04);
+    }
+}
