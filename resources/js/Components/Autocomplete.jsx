@@ -22,8 +22,10 @@ export default function Autocomplete({
     const [search, setSearch] = useState(selected ? getOptionLabel(selected) : '');
 
     useEffect(() => {
+        if (open) return;
+
         setSearch(selected ? getOptionLabel(selected) : '');
-    }, [getOptionLabel, selected]);
+    }, [getOptionLabel, open, selected]);
 
     const filteredOptions = useMemo(() => {
         const keyword = search.trim().toLowerCase();
