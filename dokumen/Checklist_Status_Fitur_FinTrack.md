@@ -178,4 +178,4 @@ Dokumen ini melacak kesesuaian fitur FinTrack terhadap PRD, rancangan alur kerja
 | 2026-05-23 | Flow provider custom bank/e-wallet selesai: user dapat menambah provider dari form tambah/edit dompet dengan logo opsional, lalu provider otomatis tersedia di pilihan. |
 | 2026-05-23 | Autocomplete diperbaiki agar input search bisa diketik tanpa reset saat dropdown aktif. |
 | 2026-05-23 | Kategori transaksi dirapikan dengan icon, color, is_default, is_active, dan delete kategori berelasi berubah menjadi nonaktif. |
-| 2026-05-23 | Form kategori memakai icon picker visual agar user memilih icon dari daftar, sementara input warna disembunyikan dari UI. |
+| 2026-05-23 | Form kategori memakai icon picker visual berbasis Lucide React dengan daftar icon yang diperbanyak, sementara input warna disembunyikan dari UI. |

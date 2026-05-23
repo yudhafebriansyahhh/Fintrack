@@ -6,6 +6,43 @@ import SecondaryButton from "@/Components/SecondaryButton";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { confirmAction, confirmDelete, toastSuccess } from "@/Utils/swal";
 import { Head, router, useForm, usePage } from "@inertiajs/react";
+import {
+    ArrowDown,
+    ArrowUp,
+    Banknote,
+    Bell,
+    BookOpen,
+    BriefcaseBusiness,
+    Bus,
+    CalendarDays,
+    Car,
+    Coffee,
+    CreditCard,
+    Dumbbell,
+    Fuel,
+    Gamepad2,
+    Gift,
+    GraduationCap,
+    HandHeart,
+    HeartPulse,
+    Home,
+    Landmark,
+    Mail,
+    Plane,
+    ReceiptText,
+    Scissors,
+    ShieldCheck,
+    Shirt,
+    ShoppingCart,
+    Smartphone,
+    Store,
+    TrendingUp,
+    UserRound,
+    Utensils,
+    Wallet,
+    Wifi,
+    Zap,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 
 const typeMeta = {
@@ -63,23 +100,44 @@ const iconForCategory = (category) => {
 };
 
 const iconOptions = [
-    { value: "food", label: "Makan" },
-    { value: "cart", label: "Belanja" },
-    { value: "car", label: "Transport" },
-    { value: "wifi", label: "Internet" },
-    { value: "bills", label: "Tagihan" },
-    { value: "creditCard", label: "Cicilan" },
-    { value: "briefcase", label: "Kerja" },
-    { value: "reports", label: "Investasi" },
-    { value: "zap", label: "Bonus" },
-    { value: "mail", label: "Donasi" },
-    { value: "user", label: "Keluarga" },
-    { value: "receipt", label: "Lainnya" },
-    { value: "wallet", label: "Dompet" },
-    { value: "bank", label: "Bank" },
-    { value: "arrowDown", label: "Masuk" },
-    { value: "arrowUp", label: "Keluar" },
+    { value: "food", label: "Makan", icon: Utensils },
+    { value: "coffee", label: "Kopi", icon: Coffee },
+    { value: "cart", label: "Belanja", icon: ShoppingCart },
+    { value: "store", label: "Toko", icon: Store },
+    { value: "shirt", label: "Pakaian", icon: Shirt },
+    { value: "car", label: "Mobil", icon: Car },
+    { value: "bus", label: "Bus", icon: Bus },
+    { value: "fuel", label: "Bensin", icon: Fuel },
+    { value: "home", label: "Rumah", icon: Home },
+    { value: "wifi", label: "Internet", icon: Wifi },
+    { value: "phone", label: "Pulsa", icon: Smartphone },
+    { value: "bills", label: "Tagihan", icon: ReceiptText },
+    { value: "creditCard", label: "Kartu", icon: CreditCard },
+    { value: "receipt", label: "Struk", icon: ReceiptText },
+    { value: "briefcase", label: "Kerja", icon: BriefcaseBusiness },
+    { value: "reports", label: "Investasi", icon: TrendingUp },
+    { value: "bank", label: "Bank", icon: Landmark },
+    { value: "wallet", label: "Dompet", icon: Wallet },
+    { value: "cash", label: "Tunai", icon: Banknote },
+    { value: "zap", label: "Bonus", icon: Zap },
+    { value: "gift", label: "Hadiah", icon: Gift },
+    { value: "heart", label: "Sehat", icon: HeartPulse },
+    { value: "book", label: "Belajar", icon: BookOpen },
+    { value: "graduation", label: "Sekolah", icon: GraduationCap },
+    { value: "gamepad", label: "Hiburan", icon: Gamepad2 },
+    { value: "dumbbell", label: "Olahraga", icon: Dumbbell },
+    { value: "scissors", label: "Salon", icon: Scissors },
+    { value: "plane", label: "Travel", icon: Plane },
+    { value: "shield", label: "Asuransi", icon: ShieldCheck },
+    { value: "mail", label: "Donasi", icon: HandHeart },
+    { value: "user", label: "Keluarga", icon: UserRound },
+    { value: "calendar", label: "Rutin", icon: CalendarDays },
+    { value: "bell", label: "Reminder", icon: Bell },
+    { value: "arrowDown", label: "Masuk", icon: ArrowDown },
+    { value: "arrowUp", label: "Keluar", icon: ArrowUp },
 ];
+
+const lucideIconFor = (name) => iconOptions.find((option) => option.value === name)?.icon;
 
 export default function Index({ categories }) {
     const { flash, errors } = usePage().props;
@@ -516,17 +574,22 @@ export default function Index({ categories }) {
                                 <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
                                     Pilih icon
                                 </span>
-                                {form.data.icon && (
-                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-500">
-                                        <Icon name={form.data.icon} className="h-3.5 w-3.5" />
-                                        Terpilih
-                                    </span>
-                                )}
+                                {form.data.icon && (() => {
+                                    const SelectedIcon = lucideIconFor(form.data.icon);
+
+                                    return SelectedIcon ? (
+                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-500">
+                                            <SelectedIcon className="h-3.5 w-3.5" strokeWidth={2.2} />
+                                            Terpilih
+                                        </span>
+                                    ) : null;
+                                })()}
                             </div>
 
                             <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-8">
                                 {iconOptions.map((option) => {
                                     const selected = form.data.icon === option.value;
+                                    const OptionIcon = option.icon;
 
                                     return (
                                         <button
@@ -540,7 +603,7 @@ export default function Index({ categories }) {
                                             }`}
                                             title={option.label}
                                         >
-                                            <Icon name={option.value} className="h-5 w-5" />
+                                            <OptionIcon className="h-5 w-5" strokeWidth={2.1} />
                                             <span className="max-w-full truncate px-1 text-[10px] leading-none">
                                                 {option.label}
                                             </span>

@@ -22,6 +22,7 @@
         "vite": "^8.0.0"
     },
     "dependencies": {
+        "lucide-react": "^1.16.0",
         "sweetalert2": "^11.26.24"
     }
 }
