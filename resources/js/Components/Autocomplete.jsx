@@ -83,7 +83,7 @@ export default function Autocomplete({
             </div>
 
             {open && (
-                <div className="absolute z-40 mt-2 max-h-56 w-full overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-2xl shadow-slate-900/10">
+                <div className="absolute z-[100] mt-2 max-h-56 w-full overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-2xl shadow-slate-900/10">
                     {filteredOptions.length === 0 && (
                         <div className="px-4 py-4 text-center text-sm text-slate-400">
                             {emptyText}

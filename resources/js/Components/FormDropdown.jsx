@@ -32,7 +32,7 @@ export default function FormDropdown({
             </button>
 
             {open && (
-                <div className="absolute z-40 mt-2 w-full rounded-2xl border border-slate-200 bg-white p-1 shadow-2xl shadow-slate-900/10">
+                <div className="absolute z-[100] mt-2 w-full rounded-2xl border border-slate-200 bg-white p-1 shadow-2xl shadow-slate-900/10">
                     {options.map((option) => {
                         const active = String(option.value) === String(value);
 

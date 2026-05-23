@@ -83,7 +83,7 @@ export default function DatePicker({ value, onChange, placeholder = 'Pilih tangg
             </button>
 
             {open && (
-                <div className="absolute z-40 mt-2 w-80 max-w-[calc(100vw-3rem)] rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-900/10">
+                <div className="absolute z-[100] mt-2 w-80 max-w-[calc(100vw-3rem)] rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-900/10">
                     <div className="flex items-center justify-between gap-3">
                         <button
                             type="button"

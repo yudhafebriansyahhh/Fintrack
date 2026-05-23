@@ -776,10 +776,10 @@ export default function Index({
             <Modal
                 show={showTransactionModal}
                 onClose={closeForm}
-                maxWidth="2xl"
+                maxWidth="lg"
             >
-                <div className="overflow-hidden rounded-2xl bg-white">
-                    <div className="border-b border-slate-100 bg-gradient-to-br from-primary-50 via-white to-sky-50 px-5 py-4 sm:px-6">
+                <div className="rounded-2xl bg-white shadow-xl">
+                    <div className="rounded-t-2xl border-b border-slate-100 bg-gradient-to-br from-primary-50 via-white to-sky-50 px-5 py-4 sm:px-6">
                         <div className="flex items-start justify-between gap-4">
                             <div>
                                 <p className="text-xs font-semibold uppercase tracking-wide text-primary-600">
@@ -808,8 +808,8 @@ export default function Index({
                     </div>
 
                     <form onSubmit={submit}>
-                        <div className="grid max-h-[70vh] gap-4 overflow-y-auto px-5 py-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-6">
-                            <div className="sm:col-span-2 lg:col-span-2">
+                        <div className="grid gap-4 px-5 py-5 sm:grid-cols-2 sm:px-6">
+                            <div>
                                 <span className="text-xs font-bold uppercase text-slate-500">
                                     Tipe
                                 </span>
@@ -829,7 +829,7 @@ export default function Index({
                                 />
                             </div>
 
-                            <div className="lg:col-span-2">
+                            <div>
                                 <span className="text-xs font-bold uppercase text-slate-500">
                                     Dompet
                                 </span>
@@ -850,7 +850,7 @@ export default function Index({
                                 />
                             </div>
 
-                            <div className="lg:col-span-2">
+                            <div>
                                 <span className="text-xs font-bold uppercase text-slate-500">
                                     Kategori
                                 </span>
@@ -882,7 +882,7 @@ export default function Index({
                                 />
                             </div>
 
-                            <div className="lg:col-span-2">
+                            <div>
                                 <span className="text-xs font-bold uppercase text-slate-500">
                                     Nominal
                                 </span>
@@ -907,7 +907,7 @@ export default function Index({
                                 />
                             </div>
 
-                            <div className="lg:col-span-2">
+                            <div>
                                 <span className="text-xs font-bold uppercase text-slate-500">
                                     Tanggal
                                 </span>
@@ -923,7 +923,7 @@ export default function Index({
                                 />
                             </div>
 
-                            <div className="sm:col-span-2 lg:col-span-2">
+                            <div>
                                 <span className="text-xs font-bold uppercase text-slate-500">
                                     Deskripsi
                                 </span>
@@ -946,7 +946,7 @@ export default function Index({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4 sm:flex sm:justify-end sm:px-6">
+                        <div className="grid grid-cols-2 gap-3 rounded-b-2xl border-t border-slate-100 bg-slate-50 px-5 py-4 sm:flex sm:justify-end sm:px-6">
                             <button
                                 type="button"
                                 onClick={closeForm}
