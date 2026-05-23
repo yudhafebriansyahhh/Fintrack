@@ -10,7 +10,18 @@
       "Bash(npm run *)",
       "Bash(./vendor/bin/phpunit tests/Feature/WalletTransferTest.php)",
       "Bash(php -l \"app/Http/Controllers/TransactionController.php\")",
-      "Bash(php -l \"app/Http/Controllers/WalletController.php\")"
+      "Bash(php -l \"app/Http/Controllers/WalletController.php\")",
+      "Bash(php -l \"app/Http/Controllers/WalletProviderController.php\")",
+      "Bash(php -l \"app/Models/User.php\")",
+      "Bash(php -l \"routes/web.php\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(php -l \"app/Models/Category.php\")",
+      "Bash(php -l \"app/Http/Controllers/CategoryController.php\")",
+      "Bash(php -l \"app/Http/Controllers/ReportController.php\")",
+      "Bash(php -l \"app/Support/DefaultCategories.php\")",
+      "Bash(php -l \"app/Services/Telegram/TelegramBot.php\")"
     ]
   }
 }

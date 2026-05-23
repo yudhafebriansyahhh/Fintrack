@@ -1,5 +1,6 @@
 import Icon from '@/Components/Icon';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export default function Autocomplete({
     value,
@@ -20,11 +21,35 @@ export default function Autocomplete({
     const selectedImage = selected && getOptionImage ? getOptionImage(selected) : null;
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState(selected ? getOptionLabel(selected) : '');
+    
+    const containerRef = useRef(null);
+    const dropdownRef = useRef(null);
+    const [dropdownStyle, setDropdownStyle] = useState({});
+
+    const updateDropdownPosition = () => {
+        if (!containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        setDropdownStyle({
+            position: 'fixed',
+            top: rect.bottom + 8,
+            left: rect.left,
+            width: rect.width,
+        });
+    };
 
     useEffect(() => {
-        if (open) return;
+        if (!open) {
+            setSearch(selected ? getOptionLabel(selected) : '');
+            return;
+        }
 
-        setSearch(selected ? getOptionLabel(selected) : '');
+        updateDropdownPosition();
+        window.addEventListener('scroll', updateDropdownPosition, true);
+        window.addEventListener('resize', updateDropdownPosition);
+        return () => {
+            window.removeEventListener('scroll', updateDropdownPosition, true);
+            window.removeEventListener('resize', updateDropdownPosition);
+        };
     }, [getOptionLabel, open, selected]);
 
     const filteredOptions = useMemo(() => {
@@ -46,9 +71,13 @@ export default function Autocomplete({
 
     return (
         <div
+            ref={containerRef}
             className={`relative ${className}`}
             onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget)) {
+                if (
+                    !event.currentTarget.contains(event.relatedTarget) &&
+                    !(dropdownRef.current && dropdownRef.current.contains(event.relatedTarget))
+                ) {
                     close();
                 }
             }}
@@ -82,8 +111,12 @@ export default function Autocomplete({
                 </div>
             </div>
 
-            {open && (
-                <div className="absolute z-[100] mt-2 max-h-56 w-full overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-2xl shadow-slate-900/10">
+            {open && createPortal(
+                <div 
+                    ref={dropdownRef}
+                    style={dropdownStyle}
+                    className="z-[100] max-h-56 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1 shadow-2xl shadow-slate-900/10"
+                >
                     {filteredOptions.length === 0 && (
                         <div className="px-4 py-4 text-center text-sm text-slate-400">
                             {emptyText}
@@ -126,7 +159,8 @@ export default function Autocomplete({
                             </button>
                         );
                     })}
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

@@ -1,5 +1,6 @@
 import Icon from '@/Components/Icon';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 const dayLabels = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
 
@@ -41,6 +42,33 @@ export default function DatePicker({ value, onChange, placeholder = 'Pilih tangg
     const [open, setOpen] = useState(false);
     const [viewDate, setViewDate] = useState(() => toDate(value));
     const selectedDate = value ? toDate(value) : null;
+    
+    const containerRef = useRef(null);
+    const popupRef = useRef(null);
+    const [popupStyle, setPopupStyle] = useState({});
+
+    const updatePopupPosition = () => {
+        if (!containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        setPopupStyle({
+            position: 'fixed',
+            top: placement === 'top' ? rect.top - 8 : rect.bottom + 8,
+            left: rect.left,
+            transform: placement === 'top' ? 'translateY(-100%)' : 'none',
+        });
+    };
+
+    useEffect(() => {
+        if (open) {
+            updatePopupPosition();
+            window.addEventListener('scroll', updatePopupPosition, true);
+            window.addEventListener('resize', updatePopupPosition);
+            return () => {
+                window.removeEventListener('scroll', updatePopupPosition, true);
+                window.removeEventListener('resize', updatePopupPosition);
+            };
+        }
+    }, [open, placement]);
 
     const dates = useMemo(() => {
         const year = viewDate.getFullYear();
@@ -61,9 +89,13 @@ export default function DatePicker({ value, onChange, placeholder = 'Pilih tangg
 
     return (
         <div
+            ref={containerRef}
             className={`relative ${className}`}
             onBlur={(event) => {
-                if (!event.currentTarget.contains(event.relatedTarget)) {
+                if (
+                    !event.currentTarget.contains(event.relatedTarget) &&
+                    !(popupRef.current && popupRef.current.contains(event.relatedTarget))
+                ) {
                     setOpen(false);
                 }
             }}
@@ -82,8 +114,12 @@ export default function DatePicker({ value, onChange, placeholder = 'Pilih tangg
                 </span>
             </button>
 
-            {open && (
-                <div className={`absolute z-[100] ${placement === 'top' ? 'bottom-full mb-2' : 'mt-2'} w-80 max-w-[calc(100vw-3rem)] rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-900/10`}>
+            {open && createPortal(
+                <div 
+                    ref={popupRef}
+                    style={popupStyle}
+                    className={`z-[100] w-80 max-w-[calc(100vw-3rem)] rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-900/10`}
+                >
                     <div className="flex items-center justify-between gap-3">
                         <button
                             type="button"
@@ -143,7 +179,8 @@ export default function DatePicker({ value, onChange, placeholder = 'Pilih tangg
                             );
                         })}
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

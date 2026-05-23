@@ -4,9 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\BillGroup;
 use App\Models\BillItem;
+use App\Models\Category;
+use App\Models\Transaction;
+use App\Models\Wallet;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class BillItemController extends Controller
@@ -59,38 +63,115 @@ class BillItemController extends Controller
     {
         $this->authorize('update', $billItem);
 
-        $billItem->update([
-            'status' => 'paid',
-            'paid_date' => Carbon::now()->toDateString(),
+        $data = $request->validate([
+            'wallet_id' => ['required', 'integer'],
         ]);
+
+        DB::transaction(function () use ($request, $billItem, $data) {
+            $wallet = Wallet::where('user_id', $request->user()->id)
+                ->where('id', $data['wallet_id'])
+                ->where('is_active', true)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($billItem->amount > $wallet->current_balance) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'wallet_id' => 'Nominal tagihan melebihi saldo dompet saat ini (Tersedia: ' . number_format($wallet->current_balance, 0, ',', '.') . ').',
+                ]);
+            }
+
+            $category = Category::firstOrCreate(
+                [
+                    'user_id' => $request->user()->id,
+                    'type' => 'expense',
+                    'name' => 'Tagihan',
+                ],
+                [
+                    'is_default' => false,
+                    'is_active' => true,
+                ],
+            );
+
+            $amount = (float) $billItem->amount;
+            $transaction = $request->user()->transactions()->create([
+                'wallet_id' => $wallet->id,
+                'category_id' => $category->id,
+                'type' => 'expense',
+                'amount' => $amount,
+                'transaction_date' => Carbon::now()->toDateString(),
+                'description' => 'Pembayaran tagihan: ' . $billItem->title,
+            ]);
+
+            $wallet->forceFill([
+                'current_balance' => (float) $wallet->current_balance - $amount,
+            ])->save();
+
+            $billItem->update([
+                'transaction_id' => $transaction->id,
+                'status' => 'paid',
+                'paid_date' => Carbon::now()->toDateString(),
+            ]);
+        });
 
         $this->refreshGroupStatus($billItem->billGroup);
 
-        return back()->with('success', 'Rincian tagihan ditandai lunas.');
+        return back()->with('success', 'Rincian tagihan ditandai lunas dan transaksi dicatat.');
     }
 
     public function markUnpaid(Request $request, BillItem $billItem): RedirectResponse
     {
         $this->authorize('update', $billItem);
 
-        $billItem->update([
-            'status' => 'unpaid',
-            'paid_date' => null,
-        ]);
+        DB::transaction(function () use ($billItem) {
+            if ($billItem->transaction_id) {
+                $transaction = Transaction::find($billItem->transaction_id);
+                if ($transaction) {
+                    $wallet = $transaction->wallet()->lockForUpdate()->first();
+                    if ($wallet) {
+                        $wallet->forceFill([
+                            'current_balance' => (float) $wallet->current_balance + (float) $transaction->amount,
+                        ])->save();
+                    }
+                    $transaction->delete();
+                }
+            }
+
+            $billItem->update([
+                'status' => 'unpaid',
+                'paid_date' => null,
+                'transaction_id' => null,
+            ]);
+        });
 
         $this->refreshGroupStatus($billItem->billGroup);
 
-        return back()->with('success', 'Rincian tagihan ditandai belum lunas.');
+        return back()->with('success', 'Rincian tagihan ditandai belum lunas. Transaksi dibatalkan.');
     }
 
     public function cancel(Request $request, BillItem $billItem): RedirectResponse
     {
         $this->authorize('update', $billItem);
 
-        $billItem->update([
-            'status' => 'cancelled',
-            'paid_date' => null,
-        ]);
+        DB::transaction(function () use ($billItem) {
+            if ($billItem->transaction_id) {
+                $transaction = Transaction::find($billItem->transaction_id);
+                if ($transaction) {
+                    $wallet = $transaction->wallet()->lockForUpdate()->first();
+                    if ($wallet) {
+                        $wallet->forceFill([
+                            'current_balance' => (float) $wallet->current_balance + (float) $transaction->amount,
+                        ])->save();
+                    }
+                    $transaction->delete();
+                }
+            }
+
+            $billItem->update([
+                'status' => 'cancelled',
+                'paid_date' => null,
+                'transaction_id' => null,
+            ]);
+        });
 
         $this->refreshGroupStatus($billItem->billGroup);
 

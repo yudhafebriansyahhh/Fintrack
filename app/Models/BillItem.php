@@ -19,6 +19,7 @@ class BillItem extends Model
         'paid_date',
         'status',
         'notes',
+        'transaction_id',
     ];
 
     protected function casts(): array
@@ -38,5 +39,10 @@ class BillItem extends Model
     public function reminders(): HasMany
     {
         return $this->hasMany(BillReminder::class);
+    }
+
+    public function transaction(): BelongsTo
+    {
+        return $this->belongsTo(Transaction::class);
     }
 }

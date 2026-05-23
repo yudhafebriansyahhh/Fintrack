@@ -67,7 +67,7 @@ class BillGroupController extends Controller
         return Inertia::render('Bills/Index', [
             'groups' => $groups,
             'debts' => $debts,
-            'wallets' => $user->wallets()->orderBy('name')->get(['id', 'name', 'is_active']),
+            'wallets' => $user->wallets()->with('provider:id,logo')->orderBy('name')->get(['id', 'name', 'type', 'is_active', 'wallet_provider_id', 'custom_logo', 'current_balance']),
             'summary' => [
                 'totalActive' => $user->billGroups()->where('status', 'active')->count(),
                 'totalCompleted' => $user->billGroups()->where('status', 'completed')->count(),

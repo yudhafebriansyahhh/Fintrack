@@ -1,3 +1,7 @@
+import Autocomplete from '@/Components/Autocomplete';
+import CurrencyInput from '@/Components/CurrencyInput';
+import DatePicker from '@/Components/DatePicker';
+import FormDropdown from '@/Components/FormDropdown';
 import Icon from '@/Components/Icon';
 import InputError from '@/Components/InputError';
 import Modal from '@/Components/Modal';
@@ -124,6 +128,10 @@ export default function Index({
         wallet_id: '',
     });
 
+    const payBillForm = useForm({
+        wallet_id: '',
+    });
+
     useEffect(() => {
         if (
             selectedBillId &&
@@ -196,6 +204,8 @@ export default function Index({
         setSelectedBillId(null);
         resetBillForm();
         resetItemForm();
+        payBillForm.reset();
+        payBillForm.clearErrors();
     };
 
     const editBill = (bill) => {
@@ -304,15 +314,51 @@ export default function Index({
         itemForm.post(route('bill-items.store', selectedBill.id), options);
     };
 
+    const payBillItem = async (item) => {
+        if (!payBillForm.data.wallet_id) {
+            await confirmAction({
+                title: 'Pilih dompet dulu',
+                text: 'Pilih dompet sumber dana untuk mencatat transaksi pengeluaran otomatis saat tagihan ini lunas.',
+                confirmButtonText: 'Oke',
+                icon: 'info',
+            });
+            return;
+        }
+
+        const confirmed = await confirmAction({
+            title: 'Tandai rincian lunas?',
+            text: `${item.title} • ${formatRupiah(item.amount)}`,
+            confirmButtonText: 'Tandai lunas',
+            icon: 'question',
+        });
+
+        if (!confirmed) return;
+
+        payBillForm.patch(route('bill-items.paid', item.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                toastSuccess('Status rincian diperbarui dan transaksi dicatat');
+                payBillForm.reset();
+            },
+        });
+    };
+
     const itemAction = async (action, item) => {
         if (action === 'paid') {
+            payBillItem(item);
+            return;
+        }
+
+        if (action === 'cancel' || action === 'unpaid') {
+            const actionText = action === 'cancel' ? 'Batalkan rincian ini?' : 'Batal lunas?';
+            const actionSub = action === 'cancel' ? 'Rincian ini akan dibatalkan.' : 'Transaksi pengeluaran terkait akan dihapus otomatis dan saldo akan dikembalikan.';
             const confirmed = await confirmAction({
-                title: 'Tandai rincian lunas?',
-                text: item.title,
-                confirmButtonText: 'Tandai lunas',
+                title: actionText,
+                text: actionSub,
+                confirmButtonText: 'Lanjutkan',
                 icon: 'question',
             });
-
+            
             if (!confirmed) return;
         }
 
@@ -596,7 +642,7 @@ export default function Index({
                             />
                         </section>
 
-                        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        <section className="flex flex-col gap-3">
                             {groups.map((group) => {
                                 const progress = groupProgress(group);
                                 const due = nextDue(group);
@@ -612,54 +658,41 @@ export default function Index({
                                         key={group.id}
                                         type="button"
                                         onClick={() => openBillDetail(group)}
-                                        className="group rounded-3xl bg-white p-5 text-left shadow-sm ring-1 ring-slate-100 transition hover:-translate-y-0.5 hover:shadow-md hover:ring-primary-100"
+                                        className="group rounded-3xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-100 transition hover:-translate-y-0.5 hover:shadow-md hover:ring-primary-100 sm:p-5 flex flex-col md:flex-row md:items-center gap-4"
                                     >
-                                        <div className="flex items-start justify-between gap-3">
-                                            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-50 text-primary-700 ring-1 ring-primary-100">
+                                        <div className="flex items-center gap-4 flex-1">
+                                            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-50 text-primary-700 ring-1 ring-primary-100">
                                                 <Icon name="bills" className="h-5 w-5" />
                                             </span>
-
-                                            <span
-                                                className={`rounded-full px-3 py-1 text-xs font-bold uppercase ring-1 ${
-                                                    statusBadge[group.status] ??
-                                                    statusBadge.active
-                                                }`}
-                                            >
-                                                {statusLabel[group.status] ??
-                                                    group.status}
-                                            </span>
+                                            <div>
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <h2 className="text-base font-bold text-slate-950 sm:text-lg">
+                                                        {group.name}
+                                                    </h2>
+                                                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ring-1 ${statusBadge[group.status] ?? statusBadge.active}`}>
+                                                        {statusLabel[group.status] ?? group.status}
+                                                    </span>
+                                                </div>
+                                                <p className="mt-0.5 line-clamp-1 text-xs text-slate-500 sm:text-sm">
+                                                    {group.description || 'Tap untuk melihat rincian tagihan.'}
+                                                </p>
+                                                <p className="mt-1 text-xs font-semibold text-slate-500">
+                                                    {group.items_count ?? 0} rincian • Jatuh tempo: {due ? formatDate(due.due_date) : '-'}
+                                                </p>
+                                            </div>
                                         </div>
 
-                                        <h2 className="mt-4 truncate text-lg font-bold text-slate-950">
-                                            {group.name}
-                                        </h2>
-
-                                        <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">
-                                            {group.description ||
-                                                'Tap untuk melihat rincian tagihan.'}
-                                        </p>
-
-                                        <div className="mt-4 flex items-center justify-between gap-3 text-sm font-semibold text-slate-600">
-                                            <span>{formatRupiah(paid)}</span>
-                                            <span>{formatRupiah(total)}</span>
-                                        </div>
-
-                                        <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-                                            <div
-                                                className="h-full rounded-full bg-primary-600"
-                                                style={{ width: `${progress}%` }}
-                                            />
-                                        </div>
-
-                                        <div className="mt-4 grid grid-cols-2 gap-2 text-xs font-semibold text-slate-500">
-                                            <span>{group.items_count ?? 0} rincian</span>
-                                            <span className="text-right">
-                                                {progress}% lunas
-                                            </span>
-                                            <span className="col-span-2 rounded-2xl bg-slate-50 px-3 py-2">
-                                                Jatuh tempo berikutnya:{' '}
-                                                {due ? formatDate(due.due_date) : '-'}
-                                            </span>
+                                        <div className="w-full md:w-64 shrink-0">
+                                            <div className="flex items-center justify-between gap-3 text-xs font-semibold text-slate-600 sm:text-sm">
+                                                <span>{formatRupiah(paid)}</span>
+                                                <span>{formatRupiah(total)}</span>
+                                            </div>
+                                            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                                                <div className="h-full rounded-full bg-primary-600" style={{ width: `${progress}%` }} />
+                                            </div>
+                                            <div className="mt-1 text-right text-[10px] font-bold text-slate-400">
+                                                {progress}% LUNAS
+                                            </div>
                                         </div>
                                     </button>
                                 );
@@ -672,7 +705,7 @@ export default function Index({
                     </>
                 ) : (
                     <>
-                        <section className="grid gap-3 sm:grid-cols-3">
+                        <section className="grid grid-cols-3 gap-3 sm:grid-cols-3">
                             <SummaryCard
                                 label="Hutang Aktif"
                                 value={summary.debtsActive ?? 0}
@@ -693,7 +726,7 @@ export default function Index({
                             />
                         </section>
 
-                        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        <section className="flex flex-col gap-3">
                             {debts.map((debt) => {
                                 const meta =
                                     debtDirection[debt.direction] ??
@@ -708,45 +741,34 @@ export default function Index({
                                         key={debt.id}
                                         type="button"
                                         onClick={() => openDebtDetail(debt)}
-                                        className="rounded-3xl bg-white p-5 text-left shadow-sm ring-1 ring-slate-100 transition hover:-translate-y-0.5 hover:shadow-md hover:ring-primary-100"
+                                        className="rounded-3xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-100 transition hover:-translate-y-0.5 hover:shadow-md hover:ring-primary-100 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4"
                                     >
-                                        <div className="flex items-start justify-between gap-3">
-                                            <span
-                                                className={`flex h-12 w-12 items-center justify-center rounded-2xl ring-1 ${meta.tone}`}
-                                            >
-                                                <Icon
-                                                    name={meta.icon}
-                                                    className="h-5 w-5"
-                                                />
+                                        <div className="flex items-center gap-4">
+                                            <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ring-1 ${meta.tone}`}>
+                                                <Icon name={meta.icon} className="h-5 w-5" />
                                             </span>
-
-                                            <span
-                                                className={`rounded-full px-3 py-1 text-xs font-bold uppercase ring-1 ${
-                                                    statusBadge[status] ??
-                                                    statusBadge.unpaid
-                                                }`}
-                                            >
-                                                {statusLabel[status] ?? status}
-                                            </span>
+                                            
+                                            <div>
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <h2 className="text-base font-bold text-slate-950 sm:text-lg">
+                                                        {debt.name}
+                                                    </h2>
+                                                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ring-1 ${statusBadge[status] ?? statusBadge.unpaid}`}>
+                                                        {statusLabel[status] ?? status}
+                                                    </span>
+                                                </div>
+                                                <p className="mt-0.5 text-sm font-semibold text-slate-900">
+                                                    {formatRupiah(debt.amount)} <span className="font-normal text-slate-500">• {meta.label}</span>
+                                                </p>
+                                                <p className="mt-1 line-clamp-1 text-xs text-slate-500">
+                                                    {debt.description || meta.transaction}
+                                                </p>
+                                            </div>
                                         </div>
 
-                                        <h2 className="mt-4 truncate text-lg font-bold text-slate-950">
-                                            {debt.name}
-                                        </h2>
-
-                                        <p className="mt-1 text-sm font-semibold text-slate-500">
-                                            {meta.label} • {formatRupiah(debt.amount)}
-                                        </p>
-
-                                        <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-500">
-                                            {debt.description || meta.transaction}
-                                        </p>
-
-                                        <div className="mt-4 rounded-2xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500">
+                                        <div className="rounded-2xl bg-slate-50 px-3 py-2 text-center text-xs font-semibold text-slate-500 md:text-right md:bg-transparent md:p-0">
                                             Jatuh tempo:{' '}
-                                            {debt.due_date
-                                                ? formatDate(debt.due_date)
-                                                : 'Tanpa jatuh tempo'}
+                                            {debt.due_date ? formatDate(debt.due_date) : 'Tanpa jatuh tempo'}
                                         </div>
                                     </button>
                                 );
@@ -779,6 +801,8 @@ export default function Index({
                 destroyItem={destroyItem}
                 generateForm={generateForm}
                 submitGenerate={submitGenerate}
+                activeWallets={activeWallets}
+                payBillForm={payBillForm}
             />
 
             <DebtModal
@@ -819,6 +843,8 @@ function BillModal({
     destroyItem,
     generateForm,
     submitGenerate,
+    activeWallets,
+    payBillForm,
 }) {
     const [showBillForm, setShowBillForm] = useState(!selectedBill);
     const [showItemForm, setShowItemForm] = useState(false);
@@ -986,23 +1012,20 @@ function BillModal({
                                     label="Total tagihan"
                                     error={billForm.errors.total_amount}
                                 >
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
+                                    <CurrencyInput
                                         className="form-input rounded-2xl"
                                         value={billForm.data.total_amount}
-                                        onChange={(e) =>
+                                        onChange={(val) =>
                                             billForm.setData(
                                                 'total_amount',
-                                                e.target.value,
+                                                val,
                                             )
                                         }
                                         placeholder="0"
                                     />
                                 </Field>
 
-                                <Field label="Reminder">
+                                <Field label="Reminder (hari sebelum jatuh tempo)">
                                     <input
                                         type="number"
                                         min="0"
@@ -1015,21 +1038,22 @@ function BillModal({
                                                 e.target.value,
                                             )
                                         }
+                                        placeholder="Contoh: 3"
                                     />
                                 </Field>
 
                                 <Field label="Status">
-                                    <select
-                                        className="form-select rounded-2xl"
+                                    <FormDropdown
                                         value={billForm.data.status}
-                                        onChange={(e) =>
-                                            billForm.setData('status', e.target.value)
+                                        onChange={(val) =>
+                                            billForm.setData('status', val)
                                         }
-                                    >
-                                        <option value="active">Aktif</option>
-                                        <option value="completed">Selesai</option>
-                                        <option value="cancelled">Dibatalkan</option>
-                                    </select>
+                                        options={[
+                                            { value: 'active', label: 'Aktif' },
+                                            { value: 'completed', label: 'Selesai' },
+                                            { value: 'cancelled', label: 'Dibatalkan' }
+                                        ]}
+                                    />
                                 </Field>
 
                                 <Field label="Deskripsi" className="md:col-span-2">
@@ -1097,8 +1121,8 @@ function BillModal({
                                             key={item.id}
                                             className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100"
                                         >
-                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                                <div>
+                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                                <div className="flex-1">
                                                     <p className="font-bold text-slate-950">
                                                         {item.title}
                                                     </p>
@@ -1120,17 +1144,29 @@ function BillModal({
                                                 </span>
                                             </div>
 
-                                            <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                                            <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
                                                 {item.status !== 'paid' ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            itemAction('paid', item)
-                                                        }
-                                                        className="inline-flex items-center justify-center rounded-2xl bg-primary-600 px-3 py-2.5 text-sm font-bold text-white transition hover:bg-primary-700"
-                                                    >
-                                                        Lunas
-                                                    </button>
+                                                    <div className="col-span-2 flex items-center gap-2 sm:col-span-1">
+                                                        <Autocomplete
+                                                            className="w-full sm:w-64"
+                                                            value={payBillForm.data.wallet_id}
+                                                            onChange={(val) => payBillForm.setData('wallet_id', val)}
+                                                            options={activeWallets}
+                                                            getOptionLabel={(w) => `${w.name} (${formatRupiah(w.current_balance)})`}
+                                                            getOptionValue={(w) => w.id}
+                                                            getOptionImage={(w) => w.provider?.logo || w.custom_logo || null}
+                                                            placeholder="Pilih dompet pelunasan"
+                                                            emptyText="Dompet tidak ditemukan."
+                                                            leadingIcon="wallet"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => itemAction('paid', item)}
+                                                            className="inline-flex shrink-0 items-center justify-center rounded-2xl bg-primary-600 px-3 py-2.5 text-sm font-bold text-white transition hover:bg-primary-700"
+                                                        >
+                                                            Lunas
+                                                        </button>
+                                                    </div>
                                                 ) : (
                                                     <button
                                                         type="button"
@@ -1173,41 +1209,26 @@ function BillModal({
                                             </div>
                                         </div>
                                     );
-                                })}
+                                        })}
 
                                 {(selectedBill.items ?? []).length === 0 && (
                                     <EmptyState text="Belum ada rincian untuk tagihan ini." />
                                 )}
-                            </section>
+                                </section>
 
-                            {showItemForm && (
-                                <section className="mt-5 rounded-3xl bg-slate-50 p-4">
-                                    <div className="mb-4 flex items-start justify-between gap-3">
-                                        <div>
-                                            <h3 className="text-base font-bold text-slate-950">
-                                                {editingItem
-                                                    ? 'Edit Rincian'
-                                                    : 'Tambah Rincian'}
-                                            </h3>
-                                            <p className="mt-1 text-sm text-slate-500">
-                                                Masukkan detail cicilan atau pembayaran.
-                                            </p>
-                                        </div>
-
-                                        <button
-                                            type="button"
-                                            onClick={handleCancelItemForm}
-                                            className="rounded-xl px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-white"
-                                        >
-                                            Tutup
-                                        </button>
-                                    </div>
-
-                                    <form
-                                        onSubmit={handleSubmitItem}
-                                        className="grid gap-4 md:grid-cols-2"
-                                    >
-                                        <Field
+                                <Modal show={showItemForm} onClose={handleCancelItemForm} maxWidth="md">
+                                    <div className="overflow-hidden rounded-2xl bg-white">
+                                        <ModalHeader
+                                            label={editingItem ? 'Edit Rincian' : 'Rincian Baru'}
+                                            title={editingItem ? 'Edit Rincian Cicilan' : 'Tambah Rincian Cicilan'}
+                                            description="Masukkan detail cicilan atau pembayaran."
+                                            icon="plus"
+                                            onClose={handleCancelItemForm}
+                                        />
+                                        
+                                        <div className="px-5 py-5 sm:px-6">
+                                            <form onSubmit={handleSubmitItem} className="grid gap-4 md:grid-cols-2">
+                                                <Field
                                             label="Judul"
                                             error={itemForm.errors.title}
                                         >
@@ -1244,37 +1265,31 @@ function BillModal({
                                             />
                                         </Field>
 
-                                        <Field label="Jatuh tempo">
-                                            <input
-                                                type="date"
-                                                className="form-input rounded-2xl"
-                                                value={itemForm.data.due_date}
-                                                onChange={(e) =>
-                                                    itemForm.setData(
-                                                        'due_date',
-                                                        e.target.value,
-                                                    )
-                                                }
-                                            />
-                                        </Field>
+                                                <Field label="Jatuh tempo">
+                                                    <DatePicker
+                                                        value={itemForm.data.due_date}
+                                                        onChange={(value) =>
+                                                            itemForm.setData('due_date', value)
+                                                        }
+                                                        placeholder="Pilih tanggal"
+                                                    />
+                                                </Field>
 
                                         <Field label="Status">
-                                            <select
-                                                className="form-select rounded-2xl"
+                                            <FormDropdown
                                                 value={itemForm.data.status}
-                                                onChange={(e) =>
+                                                onChange={(val) =>
                                                     itemForm.setData(
                                                         'status',
-                                                        e.target.value,
+                                                        val,
                                                     )
                                                 }
-                                            >
-                                                <option value="unpaid">Belum lunas</option>
-                                                <option value="paid">Lunas</option>
-                                                <option value="cancelled">
-                                                    Dibatalkan
-                                                </option>
-                                            </select>
+                                                options={[
+                                                    { value: 'unpaid', label: 'Belum lunas' },
+                                                    { value: 'paid', label: 'Lunas' },
+                                                    { value: 'cancelled', label: 'Dibatalkan' }
+                                                ]}
+                                            />
                                         </Field>
 
                                         <Field label="Catatan" className="md:col-span-2">
@@ -1311,29 +1326,21 @@ function BillModal({
                                             </button>
                                         </div>
                                     </form>
-                                </section>
-                            )}
-
-                            {showGenerateForm && (
-                                <section className="mt-5 rounded-3xl border border-dashed border-primary-100 bg-primary-50/40 p-4">
-                                    <div className="mb-4 flex items-start justify-between gap-3">
-                                        <div>
-                                            <h3 className="text-base font-bold text-slate-950">
-                                                Generate cicilan otomatis
-                                            </h3>
-                                            <p className="mt-1 text-sm text-slate-500">
-                                                Buat beberapa rincian cicilan sekaligus.
-                                            </p>
-                                        </div>
-
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowGenerateForm(false)}
-                                            className="rounded-xl px-3 py-1.5 text-xs font-bold text-slate-500 hover:bg-white"
-                                        >
-                                            Tutup
-                                        </button>
                                     </div>
+                                </div>
+                            </Modal>
+
+                            <Modal show={showGenerateForm} onClose={() => setShowGenerateForm(false)} maxWidth="md">
+                                <div className="overflow-hidden rounded-2xl bg-white">
+                                    <ModalHeader
+                                        label="Generate Cicilan"
+                                        title="Generate Cicilan Otomatis"
+                                        description="Buat beberapa rincian cicilan sekaligus."
+                                        icon="zap"
+                                        onClose={() => setShowGenerateForm(false)}
+                                    />
+                                    
+                                    <div className="px-5 py-5 sm:px-6">
 
                                     <form
                                         onSubmit={handleSubmitGenerate}
@@ -1356,16 +1363,13 @@ function BillModal({
                                         </Field>
 
                                         <Field label="Total">
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                step="0.01"
+                                            <CurrencyInput
                                                 className="form-input rounded-2xl"
                                                 value={generateForm.data.amount}
-                                                onChange={(e) =>
+                                                onChange={(val) =>
                                                     generateForm.setData(
                                                         'amount',
-                                                        e.target.value,
+                                                        val,
                                                     )
                                                 }
                                                 placeholder="0"
@@ -1373,33 +1377,29 @@ function BillModal({
                                         </Field>
 
                                         <Field label="Mulai">
-                                            <input
-                                                type="date"
-                                                className="form-input rounded-2xl"
+                                            <DatePicker
                                                 value={generateForm.data.start_date}
-                                                onChange={(e) =>
-                                                    generateForm.setData(
-                                                        'start_date',
-                                                        e.target.value,
-                                                    )
+                                                onChange={(value) =>
+                                                    generateForm.setData('start_date', value)
                                                 }
+                                                placeholder="Pilih tanggal"
                                             />
                                         </Field>
 
                                         <Field label="Interval">
-                                            <select
-                                                className="form-select rounded-2xl"
+                                            <FormDropdown
                                                 value={generateForm.data.interval}
-                                                onChange={(e) =>
+                                                onChange={(val) =>
                                                     generateForm.setData(
                                                         'interval',
-                                                        e.target.value,
+                                                        val,
                                                     )
                                                 }
-                                            >
-                                                <option value="monthly">Bulanan</option>
-                                                <option value="weekly">Mingguan</option>
-                                            </select>
+                                                options={[
+                                                    { value: 'monthly', label: 'Bulanan' },
+                                                    { value: 'weekly', label: 'Mingguan' }
+                                                ]}
+                                            />
                                         </Field>
 
                                         <Field label="Prefix" className="md:col-span-2">
@@ -1435,8 +1435,9 @@ function BillModal({
                                             </button>
                                         </div>
                                     </form>
-                                </section>
-                            )}
+                                    </div>
+                                </div>
+                            </Modal>
                         </>
                     )}
                 </div>
@@ -1476,7 +1477,8 @@ function DebtModal({
                 />
 
                 <div className="max-h-[75vh] overflow-y-auto px-5 py-5 sm:px-6">
-                    <form onSubmit={submitDebt} className="grid gap-4 md:grid-cols-2">
+                    {(!selectedDebt || editingDebt) && (
+                        <form onSubmit={submitDebt} className="grid gap-4 md:grid-cols-2">
                         <Field label="Nama" error={debtForm.errors.name}>
                             <input
                                 className="form-input rounded-2xl"
@@ -1489,58 +1491,54 @@ function DebtModal({
                         </Field>
 
                         <Field label="Nominal" error={debtForm.errors.amount}>
-                            <input
-                                type="number"
-                                min="0"
-                                step="0.01"
+                            <CurrencyInput
                                 className="form-input rounded-2xl"
                                 value={debtForm.data.amount}
-                                onChange={(e) =>
-                                    debtForm.setData('amount', e.target.value)
+                                onChange={(val) =>
+                                    debtForm.setData('amount', val)
                                 }
                                 placeholder="0"
                             />
                         </Field>
 
                         <Field label="Jenis">
-                            <select
-                                className="form-select rounded-2xl"
+                            <FormDropdown
                                 value={debtForm.data.direction}
-                                onChange={(e) =>
-                                    debtForm.setData('direction', e.target.value)
+                                onChange={(val) =>
+                                    debtForm.setData('direction', val)
                                 }
-                            >
-                                <option value="owe">Hutang</option>
-                                <option value="lend">Piutang</option>
-                            </select>
+                                options={[
+                                    { value: 'owe', label: 'Hutang' },
+                                    { value: 'lend', label: 'Piutang' }
+                                ]}
+                            />
                         </Field>
 
                         <Field label="Jatuh tempo">
-                            <input
-                                type="date"
-                                className="form-input rounded-2xl"
+                            <DatePicker
                                 value={debtForm.data.due_date}
-                                onChange={(e) =>
-                                    debtForm.setData('due_date', e.target.value)
+                                onChange={(value) =>
+                                    debtForm.setData('due_date', value)
                                 }
+                                placeholder="Pilih tanggal"
                             />
                         </Field>
 
                         <Field label="Status">
-                            <select
-                                className="form-select rounded-2xl"
+                            <FormDropdown
                                 value={debtForm.data.status}
-                                onChange={(e) =>
-                                    debtForm.setData('status', e.target.value)
+                                onChange={(val) =>
+                                    debtForm.setData('status', val)
                                 }
-                            >
-                                <option value="unpaid">Belum lunas</option>
-                                <option value="paid">Lunas</option>
-                                <option value="cancelled">Dibatalkan</option>
-                            </select>
+                                options={[
+                                    { value: 'unpaid', label: 'Belum lunas' },
+                                    { value: 'paid', label: 'Lunas' },
+                                    { value: 'cancelled', label: 'Dibatalkan' }
+                                ]}
+                            />
                         </Field>
 
-                        <Field label="Reminder hari">
+                        <Field label="Reminder (hari sebelum jatuh tempo)">
                             <input
                                 type="number"
                                 min="0"
@@ -1553,27 +1551,27 @@ function DebtModal({
                                         e.target.value,
                                     )
                                 }
+                                placeholder="Contoh: 3"
                             />
                         </Field>
 
                         <Field label="Dompet pelunasan">
-                            <select
-                                className="form-select rounded-2xl"
+                            <Autocomplete
                                 value={debtForm.data.wallet_id}
-                                onChange={(e) =>
-                                    debtForm.setData('wallet_id', e.target.value)
+                                onChange={(val) =>
+                                    debtForm.setData('wallet_id', val)
                                 }
-                            >
-                                <option value="">Pilih nanti</option>
-                                {activeWallets.map((wallet) => (
-                                    <option key={wallet.id} value={wallet.id}>
-                                        {wallet.name}
-                                    </option>
-                                ))}
-                            </select>
+                                options={activeWallets}
+                                getOptionLabel={(w) => `${w.name} (${formatRupiah(w.current_balance)})`}
+                                getOptionValue={(w) => w.id}
+                                getOptionImage={(w) => w.provider?.logo || w.custom_logo || null}
+                                placeholder="Cari dompet (opsional)"
+                                emptyText="Dompet tidak ditemukan."
+                                leadingIcon="wallet"
+                            />
                         </Field>
 
-                        <Field label="Deskripsi">
+                        <Field label="Deskripsi" className="md:col-span-2">
                             <input
                                 className="form-input rounded-2xl"
                                 value={debtForm.data.description}
@@ -1609,9 +1607,10 @@ function DebtModal({
                             </button>
                         </div>
                     </form>
+                    )}
 
-                    {selectedDebt && (
-                        <div className="mt-6 space-y-4">
+                    {selectedDebt && !editingDebt && (
+                        <div className={`space-y-4 ${editingDebt ? 'mt-6' : ''}`}>
                             <div className="rounded-3xl bg-slate-50 p-4">
                                 <p className="text-sm font-semibold text-slate-500">
                                     {meta?.label}
@@ -1627,31 +1626,33 @@ function DebtModal({
                             {selectedDebt.status !== 'paid' && (
                                 <div className="rounded-3xl border border-primary-100 bg-primary-50/40 p-4">
                                     <Field label="Dompet untuk pelunasan">
-                                        <select
-                                            className="form-select rounded-2xl"
+                                        <Autocomplete
                                             value={payDebtForm.data.wallet_id}
-                                            onChange={(e) =>
-                                                payDebtForm.setData(
-                                                    'wallet_id',
-                                                    e.target.value,
-                                                )
+                                            onChange={(val) =>
+                                                payDebtForm.setData('wallet_id', val)
                                             }
-                                        >
-                                            <option value="">Pilih dompet</option>
-                                            {activeWallets.map((wallet) => (
-                                                <option
-                                                    key={wallet.id}
-                                                    value={wallet.id}
-                                                >
-                                                    {wallet.name}
-                                                </option>
-                                            ))}
-                                        </select>
+                                            options={activeWallets}
+                                            getOptionLabel={(w) => `${w.name} (${formatRupiah(w.current_balance)})`}
+                                            getOptionValue={(w) => w.id}
+                                            getOptionImage={(w) => w.provider?.logo || w.custom_logo || null}
+                                            placeholder="Cari dompet"
+                                            emptyText="Dompet tidak ditemukan."
+                                            leadingIcon="wallet"
+                                        />
                                     </Field>
                                 </div>
                             )}
 
                             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+                                <button
+                                    type="button"
+                                    onClick={() => editDebt(selectedDebt)}
+                                    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                                >
+                                    <Icon name="edit" className="h-4 w-4" />
+                                    Edit
+                                </button>
+
                                 {selectedDebt.status !== 'paid' ? (
                                     <button
                                         type="button"
@@ -1661,6 +1662,7 @@ function DebtModal({
                                         Tandai Lunas
                                     </button>
                                 ) : (
+
                                     <button
                                         type="button"
                                         onClick={() =>
@@ -1683,14 +1685,6 @@ function DebtModal({
                                         Batalkan
                                     </button>
                                 )}
-
-                                <button
-                                    type="button"
-                                    onClick={() => editDebt(selectedDebt)}
-                                    className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
-                                >
-                                    Edit
-                                </button>
 
                                 <button
                                     type="button"
