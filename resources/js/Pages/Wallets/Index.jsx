@@ -538,7 +538,6 @@ export default function Index({
                             <div className="space-y-4">
                                 <Field
                                     label={form.data.type === 'bank' ? 'Pilih Bank' : 'Pilih E-Wallet'}
-                                    hint="Klik provider agar logo dan nama provider tersimpan otomatis."
                                     error={form.errors.wallet_provider_id}
                                 >
                                     <Autocomplete
