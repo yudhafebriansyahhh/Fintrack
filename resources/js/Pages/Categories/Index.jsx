@@ -62,6 +62,25 @@ const iconForCategory = (category) => {
     return category.type === "income" ? "arrowDown" : "receipt";
 };
 
+const iconOptions = [
+    { value: "food", label: "Makan" },
+    { value: "cart", label: "Belanja" },
+    { value: "car", label: "Transport" },
+    { value: "wifi", label: "Internet" },
+    { value: "bills", label: "Tagihan" },
+    { value: "creditCard", label: "Cicilan" },
+    { value: "briefcase", label: "Kerja" },
+    { value: "reports", label: "Investasi" },
+    { value: "zap", label: "Bonus" },
+    { value: "mail", label: "Donasi" },
+    { value: "user", label: "Keluarga" },
+    { value: "receipt", label: "Lainnya" },
+    { value: "wallet", label: "Dompet" },
+    { value: "bank", label: "Bank" },
+    { value: "arrowDown", label: "Masuk" },
+    { value: "arrowUp", label: "Keluar" },
+];
+
 export default function Index({ categories }) {
     const { flash, errors } = usePage().props;
     const [activeType, setActiveType] = useState("expense");
@@ -392,12 +411,13 @@ export default function Index({ categories }) {
                                 >
                                     <Icon
                                         name={
-                                            editingCategory
+                                            form.data.icon ||
+                                            (editingCategory
                                                 ? iconForCategory({
                                                       name: form.data.name,
                                                       type: form.data.type,
                                                   })
-                                                : "plus"
+                                                : "plus")
                                         }
                                         className="h-5 w-5"
                                     />
@@ -491,32 +511,45 @@ export default function Index({ categories }) {
                             />
                         </div>
 
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            <div>
+                        <div>
+                            <div className="flex items-center justify-between gap-3">
                                 <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
-                                    Icon
+                                    Pilih icon
                                 </span>
-                                <input
-                                    className="mt-2 w-full rounded-2xl border-slate-200 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                                    value={form.data.icon}
-                                    onChange={(event) => form.setData('icon', event.target.value)}
-                                    placeholder="Contoh: food, cart, bills"
-                                />
-                                <InputError message={form.errors.icon} className="mt-2" />
+                                {form.data.icon && (
+                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-500">
+                                        <Icon name={form.data.icon} className="h-3.5 w-3.5" />
+                                        Terpilih
+                                    </span>
+                                )}
                             </div>
 
-                            <div>
-                                <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
-                                    Warna
-                                </span>
-                                <input
-                                    className="mt-2 w-full rounded-2xl border-slate-200 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                                    value={form.data.color}
-                                    onChange={(event) => form.setData('color', event.target.value)}
-                                    placeholder="Contoh: emerald, rose"
-                                />
-                                <InputError message={form.errors.color} className="mt-2" />
+                            <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-8">
+                                {iconOptions.map((option) => {
+                                    const selected = form.data.icon === option.value;
+
+                                    return (
+                                        <button
+                                            key={option.value}
+                                            type="button"
+                                            onClick={() => form.setData('icon', option.value)}
+                                            className={`group flex aspect-square flex-col items-center justify-center gap-1.5 rounded-2xl border text-xs font-bold transition hover:-translate-y-0.5 hover:border-primary-200 hover:bg-primary-50 hover:text-primary-700 ${
+                                                selected
+                                                    ? 'border-primary-300 bg-primary-50 text-primary-700 shadow-sm ring-2 ring-primary-100'
+                                                    : 'border-slate-200 bg-white text-slate-500'
+                                            }`}
+                                            title={option.label}
+                                        >
+                                            <Icon name={option.value} className="h-5 w-5" />
+                                            <span className="max-w-full truncate px-1 text-[10px] leading-none">
+                                                {option.label}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
                             </div>
+
+                            <InputError message={form.errors.icon} className="mt-2" />
                         </div>
 
                         {editingCategory && (
