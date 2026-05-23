@@ -7,7 +7,7 @@ import Modal from '@/Components/Modal';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { confirmDelete, toastError, toastSuccess } from '@/Utils/swal';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const formatRupiah = (value) =>
     new Intl.NumberFormat('id-ID', {
@@ -158,7 +158,10 @@ export default function Show({
     const { flash } = usePage().props;
 
     const [walletEditOpen, setWalletEditOpen] = useState(false);
+    const [providerFormOpen, setProviderFormOpen] = useState(false);
     const [customLogoPreview, setCustomLogoPreview] = useState(wallet.custom_logo ?? null);
+    const [providerLogoPreview, setProviderLogoPreview] = useState(null);
+    const [pendingProviderName, setPendingProviderName] = useState(null);
     const [transactionOpen, setTransactionOpen] = useState(false);
     const [transferOpen, setTransferOpen] = useState(false);
     const [editing, setEditing] = useState(null);
@@ -176,6 +179,12 @@ export default function Show({
         initial_balance: wallet.initial_balance ?? 0,
         is_primary: Boolean(wallet.is_primary),
         is_active: Boolean(wallet.is_active),
+    });
+
+    const providerForm = useForm({
+        name: '',
+        type: wallet.type === 'e-wallet' ? 'e-wallet' : 'bank',
+        logo: null,
     });
 
     const txForm = useForm({
@@ -214,6 +223,19 @@ export default function Show({
         () => walletProviders.filter((provider) => provider.type === walletForm.data.type),
         [walletProviders, walletForm.data.type],
     );
+
+    useEffect(() => {
+        if (!pendingProviderName) return;
+
+        const provider = walletProviders.find(
+            (item) => item.type === walletForm.data.type && item.name === pendingProviderName,
+        );
+
+        if (!provider) return;
+
+        walletForm.setData('wallet_provider_id', provider.id);
+        setPendingProviderName(null);
+    }, [walletProviders, pendingProviderName, walletForm.data.type]);
 
     const chartData = useMemo(() => buildChartPath(chart ?? [], 320, 110), [chart]);
 
@@ -340,9 +362,14 @@ export default function Show({
 
     const closeEditWallet = () => {
         setWalletEditOpen(false);
+        setProviderFormOpen(false);
         setCustomLogoPreview(wallet.custom_logo ?? null);
+        setProviderLogoPreview(null);
+        setPendingProviderName(null);
         walletForm.reset();
         walletForm.clearErrors();
+        providerForm.reset();
+        providerForm.clearErrors();
     };
 
     const updateCustomLogo = (file) => {
@@ -353,6 +380,46 @@ export default function Show({
         }
 
         setCustomLogoPreview(file ? URL.createObjectURL(file) : wallet.custom_logo ?? null);
+    };
+
+    const updateProviderLogo = (file) => {
+        providerForm.setData('logo', file);
+
+        if (providerLogoPreview) {
+            URL.revokeObjectURL(providerLogoPreview);
+        }
+
+        setProviderLogoPreview(file ? URL.createObjectURL(file) : null);
+    };
+
+    const openProviderForm = () => {
+        providerForm.clearErrors();
+        providerForm.setData({ name: '', type: walletForm.data.type, logo: null });
+        updateProviderLogo(null);
+        setProviderFormOpen(true);
+    };
+
+    const submitProvider = (event) => {
+        event.preventDefault();
+        const name = providerForm.data.name.trim();
+
+        providerForm.transform((data) => ({
+            ...data,
+            name,
+            type: walletForm.data.type,
+        }));
+
+        providerForm.post(route('wallet-providers.store'), {
+            preserveScroll: true,
+            forceFormData: true,
+            only: ['walletProviders', 'flash', 'errors'],
+            onSuccess: () => {
+                setPendingProviderName(name);
+                setProviderFormOpen(false);
+                setProviderLogoPreview(null);
+                providerForm.reset();
+            },
+        });
     };
 
     const submitWallet = (event) => {
@@ -1085,6 +1152,84 @@ export default function Show({
                                         getOptionImage={(provider) => provider.logo}
                                     />
                                 </Field>
+
+                                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4">
+                                    {!providerFormOpen ? (
+                                        <button
+                                            type="button"
+                                            onClick={openProviderForm}
+                                            className="inline-flex items-center gap-2 text-sm font-bold text-primary-700 transition hover:text-primary-600"
+                                        >
+                                            <Icon name="plus" className="h-4 w-4" />
+                                            Tambah {walletForm.data.type === 'bank' ? 'bank' : 'e-wallet'} sendiri
+                                        </button>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            <Field
+                                                label={`Nama ${walletForm.data.type === 'bank' ? 'Bank' : 'E-Wallet'}`}
+                                                error={providerForm.errors.name}
+                                            >
+                                                <input
+                                                    className="form-input rounded-2xl bg-white"
+                                                    value={providerForm.data.name}
+                                                    onChange={(event) =>
+                                                        providerForm.setData('name', event.target.value)
+                                                    }
+                                                    placeholder={
+                                                        walletForm.data.type === 'bank'
+                                                            ? 'Contoh: Bank Jago Syariah'
+                                                            : 'Contoh: ShopeePay Bisnis'
+                                                    }
+                                                />
+                                            </Field>
+
+                                            <Field label="Logo Provider" error={providerForm.errors.logo}>
+                                                <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-3 transition hover:border-primary-300 hover:bg-primary-50/40">
+                                                    {providerLogoPreview ? (
+                                                        <img
+                                                            src={providerLogoPreview}
+                                                            alt="Preview logo provider"
+                                                            className="h-10 w-10 object-contain"
+                                                        />
+                                                    ) : (
+                                                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+                                                            <Icon name="plus" className="h-4 w-4" />
+                                                        </span>
+                                                    )}
+                                                    <span className="text-xs font-bold text-slate-500">
+                                                        {providerLogoPreview ? 'Ganti logo' : 'Upload logo opsional'}
+                                                    </span>
+                                                    <input
+                                                        type="file"
+                                                        accept="image/png,image/jpeg,image/webp"
+                                                        className="hidden"
+                                                        onChange={(event) =>
+                                                            updateProviderLogo(event.target.files?.[0] ?? null)
+                                                        }
+                                                    />
+                                                </label>
+                                            </Field>
+
+                                            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setProviderFormOpen(false)}
+                                                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
+                                                >
+                                                    Batal
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={submitProvider}
+                                                    disabled={providerForm.processing}
+                                                    className="rounded-xl bg-primary-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                                >
+                                                    {providerForm.processing ? 'Menyimpan…' : 'Simpan Provider'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
 
                                 {walletForm.data.type === 'bank' && (
                                     <div className="grid gap-4 sm:grid-cols-2">

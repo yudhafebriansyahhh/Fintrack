@@ -5,7 +5,7 @@ import InputError from "@/Components/InputError";
 import Modal from "@/Components/Modal";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { Head, Link, useForm, usePage } from "@inertiajs/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const formatRupiah = (value) =>
     new Intl.NumberFormat("id-ID", {
@@ -108,9 +108,17 @@ export default function Index({
     const { flash } = usePage().props;
 
     const [modalOpen, setModalOpen] = useState(false);
+    const [providerFormOpen, setProviderFormOpen] = useState(false);
     const [customLogoPreview, setCustomLogoPreview] = useState(null);
+    const [providerLogoPreview, setProviderLogoPreview] = useState(null);
+    const [pendingProviderName, setPendingProviderName] = useState(null);
 
     const form = useForm(initialWalletData);
+    const providerForm = useForm({
+        name: '',
+        type: 'bank',
+        logo: null,
+    });
 
     const activeWallets = useMemo(
         () => wallets.filter((wallet) => wallet.is_active),
@@ -142,6 +150,19 @@ export default function Index({
         [walletProviders, form.data.type],
     );
 
+    useEffect(() => {
+        if (!pendingProviderName) return;
+
+        const provider = walletProviders.find(
+            (item) => item.type === form.data.type && item.name === pendingProviderName,
+        );
+
+        if (!provider) return;
+
+        form.setData('wallet_provider_id', provider.id);
+        setPendingProviderName(null);
+    }, [walletProviders, pendingProviderName, form.data.type]);
+
     const openCreate = (type = "cash") => {
         form.clearErrors();
         form.setData({ ...initialWalletData, type });
@@ -151,9 +172,14 @@ export default function Index({
 
     const closeModal = () => {
         setModalOpen(false);
+        setProviderFormOpen(false);
         setCustomLogoPreview(null);
+        setProviderLogoPreview(null);
+        setPendingProviderName(null);
         form.reset();
         form.clearErrors();
+        providerForm.reset();
+        providerForm.clearErrors();
     };
 
     const updateCustomLogo = (file) => {
@@ -164,6 +190,46 @@ export default function Index({
         }
 
         setCustomLogoPreview(file ? URL.createObjectURL(file) : null);
+    };
+
+    const updateProviderLogo = (file) => {
+        providerForm.setData('logo', file);
+
+        if (providerLogoPreview) {
+            URL.revokeObjectURL(providerLogoPreview);
+        }
+
+        setProviderLogoPreview(file ? URL.createObjectURL(file) : null);
+    };
+
+    const openProviderForm = () => {
+        providerForm.clearErrors();
+        providerForm.setData({ name: '', type: form.data.type, logo: null });
+        updateProviderLogo(null);
+        setProviderFormOpen(true);
+    };
+
+    const submitProvider = (event) => {
+        event.preventDefault();
+        const name = providerForm.data.name.trim();
+
+        providerForm.transform((data) => ({
+            ...data,
+            name,
+            type: form.data.type,
+        }));
+
+        providerForm.post(route('wallet-providers.store'), {
+            preserveScroll: true,
+            forceFormData: true,
+            only: ['walletProviders', 'flash', 'errors'],
+            onSuccess: () => {
+                setPendingProviderName(name);
+                setProviderFormOpen(false);
+                setProviderLogoPreview(null);
+                providerForm.reset();
+            },
+        });
     };
 
     const submit = (event) => {
@@ -491,6 +557,88 @@ export default function Index({
                                         getOptionImage={(provider) => provider.logo}
                                     />
                                 </Field>
+
+                                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4">
+                                    {!providerFormOpen ? (
+                                        <button
+                                            type="button"
+                                            onClick={openProviderForm}
+                                            className="inline-flex items-center gap-2 text-sm font-bold text-primary-700 transition hover:text-primary-600"
+                                        >
+                                            <Icon name="plus" className="h-4 w-4" />
+                                            Tambah {form.data.type === 'bank' ? 'bank' : 'e-wallet'} sendiri
+                                        </button>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            <Field
+                                                label={`Nama ${form.data.type === 'bank' ? 'Bank' : 'E-Wallet'}`}
+                                                error={providerForm.errors.name}
+                                            >
+                                                <input
+                                                    className="form-input rounded-2xl bg-white"
+                                                    value={providerForm.data.name}
+                                                    onChange={(event) =>
+                                                        providerForm.setData('name', event.target.value)
+                                                    }
+                                                    placeholder={
+                                                        form.data.type === 'bank'
+                                                            ? 'Contoh: Bank Jago Syariah'
+                                                            : 'Contoh: ShopeePay Bisnis'
+                                                    }
+                                                />
+                                            </Field>
+
+                                            <Field
+                                                label="Logo Provider"
+                                                hint="Opsional. PNG, JPG, atau WebP maksimal 1 MB."
+                                                error={providerForm.errors.logo}
+                                            >
+                                                <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-3 transition hover:border-primary-300 hover:bg-primary-50/40">
+                                                    {providerLogoPreview ? (
+                                                        <img
+                                                            src={providerLogoPreview}
+                                                            alt="Preview logo provider"
+                                                            className="h-10 w-10 object-contain"
+                                                        />
+                                                    ) : (
+                                                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+                                                            <Icon name="plus" className="h-4 w-4" />
+                                                        </span>
+                                                    )}
+                                                    <span className="text-xs font-bold text-slate-500">
+                                                        {providerLogoPreview ? 'Ganti logo' : 'Upload logo opsional'}
+                                                    </span>
+                                                    <input
+                                                        type="file"
+                                                        accept="image/png,image/jpeg,image/webp"
+                                                        className="hidden"
+                                                        onChange={(event) =>
+                                                            updateProviderLogo(event.target.files?.[0] ?? null)
+                                                        }
+                                                    />
+                                                </label>
+                                            </Field>
+
+                                            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setProviderFormOpen(false)}
+                                                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
+                                                >
+                                                    Batal
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={submitProvider}
+                                                    disabled={providerForm.processing}
+                                                    className="rounded-xl bg-primary-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                                >
+                                                    {providerForm.processing ? 'Menyimpan…' : 'Simpan Provider'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
 
                                 {form.data.type === 'bank' && (
                                     <div className="grid gap-4 sm:grid-cols-2">

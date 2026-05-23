@@ -12,6 +12,7 @@ use App\Http\Controllers\TelegramController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\WhatsappController;
 use App\Http\Controllers\WalletController;
+use App\Http\Controllers\WalletProviderController;
 use App\Http\Controllers\WalletTransferController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -31,6 +32,7 @@ Route::get('/dashboard', DashboardController::class)->middleware(['auth', 'verif
 Route::middleware('auth')->group(function () {
     Route::resource('wallets', WalletController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
     Route::patch('/wallets/{wallet}/balance', [WalletController::class, 'updateBalance'])->name('wallets.balance');
+    Route::post('/wallet-providers', [WalletProviderController::class, 'store'])->name('wallet-providers.store');
     Route::post('/wallet-transfers', [WalletTransferController::class, 'store'])->name('wallet-transfers.store');
 
     Route::resource('categories', CategoryController::class)->only(['index', 'store', 'update', 'destroy']);
