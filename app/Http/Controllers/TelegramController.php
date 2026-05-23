@@ -98,8 +98,6 @@ class TelegramController extends Controller
 
         $user->forceFill([
             'phone_verified_at' => Carbon::now(),
-            'phone_verification_code' => null,
-            'phone_verification_expires_at' => null,
         ])->save();
 
         return back()->with('success', 'Kode OTP valid. Kirim kode yang sama ke bot Telegram untuk menyimpan chat ID akun ini.');

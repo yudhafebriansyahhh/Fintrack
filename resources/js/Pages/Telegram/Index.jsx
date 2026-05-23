@@ -2,7 +2,6 @@ import DangerButton from '@/Components/DangerButton';
 import Icon from '@/Components/Icon';
 import InputError from '@/Components/InputError';
 import PrimaryButton from '@/Components/PrimaryButton';
-import SecondaryButton from '@/Components/SecondaryButton';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { confirmDelete, toastSuccess } from '@/Utils/swal';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
@@ -60,21 +59,12 @@ export default function Index({
     const { flash } = usePage().props;
 
     const otpForm = useForm({});
-    const codeForm = useForm({ code: '' });
 
     const botConfigured = Boolean(botUsername);
 
     const generateOtp = (event) => {
         event.preventDefault();
         otpForm.post(route('telegram.request-otp'), { preserveScroll: true });
-    };
-
-    const verifyOtp = (event) => {
-        event.preventDefault();
-        codeForm.post(route('telegram.verify'), {
-            preserveScroll: true,
-            onSuccess: () => codeForm.reset(),
-        });
     };
 
     const unlink = async () => {
@@ -101,6 +91,12 @@ export default function Index({
     };
 
     const botLabel = botConfigured ? `@${botUsername.replace(/^@/, '')}` : 'Belum dikonfigurasi';
+    const hasActiveCode = Boolean(verification?.has_code);
+    const connectionStatus = verification?.is_linked
+        ? 'Terhubung'
+        : hasActiveCode
+          ? 'Menunggu kode dikirim ke bot'
+          : 'Belum terhubung';
 
     return (
         <AuthenticatedLayout
@@ -177,12 +173,14 @@ export default function Index({
                         <div className="surface-card-padded">
                             <p className="label-tiny">Status koneksi</p>
                             <p className="mt-2 text-2xl font-semibold text-slate-950">
-                                {verification?.is_linked ? 'Terhubung' : 'Belum terhubung'}
+                                {connectionStatus}
                             </p>
                             <p className="mt-1 text-xs text-slate-500">
                                 {verification?.is_linked
                                     ? `Chat ID tersimpan: ${verification.chat_id}`
-                                    : 'Generate OTP, lalu kirim kode tersebut ke bot Telegram untuk menyelesaikan tautan.'}
+                                    : hasActiveCode
+                                      ? 'Kode sudah aktif. Kirim kode tersebut ke bot Telegram untuk menyimpan chat ID.'
+                                      : 'Generate kode, lalu kirim kode tersebut ke bot Telegram untuk menyelesaikan tautan.'}
                             </p>
                             {verification?.verified_at && (
                                 <p className="mt-3 text-xs text-slate-500">
@@ -195,16 +193,16 @@ export default function Index({
                     <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
                         <div className="surface-card-padded">
                             <div className="flex flex-col gap-2 border-b border-slate-100 pb-4">
-                                <h2 className="text-lg font-semibold text-slate-950">Generate OTP Telegram</h2>
+                                <h2 className="text-lg font-semibold text-slate-950">Hubungkan Telegram</h2>
                                 <p className="text-sm text-slate-500">
-                                    OTP dibuat di FinTrack lalu Anda kirim manual ke bot agar sistem bisa menyimpan chat ID Telegram secara aman.
+                                    Buat kode di FinTrack, lalu kirim kode itu ke bot Telegram agar sistem bisa menyimpan chat ID akunmu.
                                 </p>
                             </div>
 
                             <form onSubmit={generateOtp} className="mt-5 space-y-4">
-                                <PrimaryButton disabled={otpForm.processing || !botConfigured}>
+                                <PrimaryButton disabled={otpForm.processing || !botConfigured || verification?.is_linked}>
                                     <Icon name="zap" className="h-4 w-4" />
-                                    {otpForm.processing ? 'Membuat OTP...' : verification?.has_code ? 'Generate OTP baru' : 'Generate OTP'}
+                                    {otpForm.processing ? 'Membuat kode...' : verification?.has_code ? 'Generate kode baru' : 'Generate kode Telegram'}
                                 </PrimaryButton>
                                 <InputError message={otpForm.errors?.code} />
                             </form>
@@ -236,30 +234,16 @@ export default function Index({
                                 </div>
                             )}
 
-                            <form onSubmit={verifyOtp} className="mt-6 space-y-3 border-t border-slate-100 pt-5">
-                                <label className="block text-sm font-semibold text-slate-700" htmlFor="code">
-                                    Validasi kode di web
-                                </label>
-                                <div className="flex flex-col gap-3 sm:flex-row">
-                                    <input
-                                        id="code"
-                                        value={codeForm.data.code}
-                                        onChange={(event) => codeForm.setData('code', event.target.value.replace(/\D/g, ''))}
-                                        maxLength={6}
-                                        inputMode="numeric"
-                                        autoComplete="one-time-code"
-                                        className="w-full rounded-xl border-slate-200 text-lg tracking-[0.35em] focus:border-primary-500 focus:ring-primary-500 sm:max-w-xs"
-                                        placeholder="123456"
-                                    />
-                                    <SecondaryButton disabled={codeForm.processing}>
-                                        {codeForm.processing ? 'Mengecek...' : 'Cek OTP'}
-                                    </SecondaryButton>
+                            {!verification?.is_linked && (
+                                <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                                    <p className="text-sm font-semibold text-slate-800">
+                                        Kode tidak perlu dicek di web.
+                                    </p>
+                                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                                        Kirim kode aktif langsung ke bot Telegram. Bot akan memvalidasi kode, menyimpan chat ID, lalu membalas saat akun berhasil terhubung.
+                                    </p>
                                 </div>
-                                <InputError message={codeForm.errors.code} />
-                                <p className="text-xs text-slate-500">
-                                    Tombol ini hanya memvalidasi format kode di sisi web. Untuk menyimpan chat ID, kode tetap harus dikirim ke bot.
-                                </p>
-                            </form>
+                            )}
 
                             {verification?.is_linked && (
                                 <div className="mt-6 border-t border-slate-100 pt-5">
