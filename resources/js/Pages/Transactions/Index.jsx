@@ -776,7 +776,7 @@ export default function Index({
             <Modal
                 show={showTransactionModal}
                 onClose={closeForm}
-                maxWidth="lg"
+                maxWidth="2xl"
             >
                 <div className="rounded-2xl bg-white shadow-xl">
                     <div className="rounded-t-2xl border-b border-slate-100 bg-gradient-to-br from-primary-50 via-white to-sky-50 px-5 py-4 sm:px-6">
