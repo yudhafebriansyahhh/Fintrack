@@ -113,6 +113,7 @@ class TelegramBot
         if ($haystack !== '' && $haystack !== '-') {
             $userCategories = $user->categories()
                 ->where('type', $type)
+                ->where('is_active', true)
                 ->orderByRaw('LENGTH(name) DESC')
                 ->get(['id', 'name']);
 
@@ -131,6 +132,7 @@ class TelegramBot
 
         $existing = $user->categories()
             ->where('type', $type)
+            ->where('is_active', true)
             ->whereRaw('LOWER(name) = ?', [mb_strtolower($fallbackName)])
             ->first();
 
@@ -142,6 +144,8 @@ class TelegramBot
             'user_id' => $user->id,
             'type' => $type,
             'name' => $fallbackName,
+            'is_default' => true,
+            'is_active' => true,
         ]);
     }
 

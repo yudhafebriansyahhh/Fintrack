@@ -15,7 +15,19 @@ class Category extends Model
         'user_id',
         'name',
         'type',
+        'icon',
+        'color',
+        'is_default',
+        'is_active',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_default' => 'boolean',
+            'is_active' => 'boolean',
+        ];
+    }
 
     public function user(): BelongsTo
     {

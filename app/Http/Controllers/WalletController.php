@@ -145,7 +145,7 @@ class WalletController extends Controller
                 ->orderBy('type')
                 ->orderBy('name')
                 ->get(['id', 'name', 'type', 'logo', 'is_default']),
-            'categories' => $user->categories()->orderBy('name')->get(['id', 'name', 'type']),
+            'categories' => $user->categories()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'type']),
             'summary' => [
                 'income' => $income,
                 'expense' => $expense,

@@ -54,11 +54,17 @@ class DebtController extends Controller
                 ->firstOrFail();
 
             $type = $debt->direction === 'lend' ? 'income' : 'expense';
-            $category = Category::firstOrCreate([
-                'user_id' => $request->user()->id,
-                'type' => $type,
-                'name' => $debt->direction === 'lend' ? 'Piutang' : 'Hutang',
-            ]);
+            $category = Category::firstOrCreate(
+                [
+                    'user_id' => $request->user()->id,
+                    'type' => $type,
+                    'name' => $debt->direction === 'lend' ? 'Piutang' : 'Hutang',
+                ],
+                [
+                    'is_default' => false,
+                    'is_active' => true,
+                ],
+            );
 
             $amount = (float) $debt->amount;
             $request->user()->transactions()->create([

@@ -119,7 +119,7 @@ class ReportController extends Controller
             ->selectRaw('COUNT(*) as total_count, COALESCE(SUM(amount), 0) as total_amount')
             ->first();
 
-        $categories = $user->categories()->orderBy('name')->get(['id', 'name', 'type']);
+        $categories = $user->categories()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'type']);
 
         return Inertia::render('Reports/Index', [
             'filters' => array_merge($filters, [

@@ -55,7 +55,7 @@ class TransactionController extends Controller
         return Inertia::render('Transactions/Index', [
             'transactions' => $transactions,
             'wallets' => $user->wallets()->orderBy('name')->get(['id', 'name', 'type', 'is_active']),
-            'categories' => $user->categories()->orderBy('name')->get(['id', 'name', 'type']),
+            'categories' => $user->categories()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'type']),
             'filters' => $filters,
             'categoryDistribution' => $this->categoryDistribution(clone $baseQuery, $chartPeriod),
             'trend' => $this->trend(clone $baseQuery, $chartPeriod),
@@ -214,6 +214,7 @@ class TransactionController extends Controller
     {
         $category = Category::where('user_id', $request->user()->id)
             ->where('id', $categoryId)
+            ->where('is_active', true)
             ->firstOrFail();
 
         abort_unless($category->type === $type, 422, 'Kategori tidak sesuai tipe transaksi.');

@@ -131,6 +131,10 @@ class CommandParser
                 'type' => $type,
                 'name' => Str::headline($categoryName),
             ],
+            [
+                'is_default' => false,
+                'is_active' => true,
+            ],
         );
 
         DB::transaction(function () use ($user, $wallet, $category, $type, $amount, $note) {

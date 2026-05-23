@@ -71,16 +71,19 @@ export default function Index({ categories }) {
     const form = useForm({
         name: "",
         type: "expense",
+        icon: "",
+        color: "",
+        is_active: true,
     });
 
     const grouped = useMemo(() => {
         return {
             income: categories
                 .filter((category) => category.type === "income")
-                .sort((a, b) => a.name.localeCompare(b.name, "id-ID")),
+                .sort((a, b) => Number(b.is_active) - Number(a.is_active) || a.name.localeCompare(b.name, "id-ID")),
             expense: categories
                 .filter((category) => category.type === "expense")
-                .sort((a, b) => a.name.localeCompare(b.name, "id-ID")),
+                .sort((a, b) => Number(b.is_active) - Number(a.is_active) || a.name.localeCompare(b.name, "id-ID")),
         };
     }, [categories]);
 
@@ -116,7 +119,13 @@ export default function Index({ categories }) {
 
     const openEditForm = (category) => {
         setEditingCategory(category);
-        form.setData({ name: category.name, type: category.type });
+        form.setData({
+            name: category.name,
+            type: category.type,
+            icon: category.icon ?? '',
+            color: category.color ?? '',
+            is_active: Boolean(category.is_active),
+        });
         form.clearErrors();
         setShowCategoryModal(true);
     };
@@ -305,13 +314,13 @@ export default function Index({ categories }) {
                                     key={category.id}
                                     type="button"
                                     onClick={() => openEditForm(category)}
-                                    className="group flex w-full items-center gap-3 rounded-2xl border border-slate-100 bg-white px-3 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-md sm:gap-4 sm:px-4"
+                                    className={`group flex w-full items-center gap-3 rounded-2xl border border-slate-100 bg-white px-3 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-md sm:gap-4 sm:px-4 ${category.is_active ? '' : 'opacity-55'}`}
                                 >
                                     <span
                                         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl sm:h-11 sm:w-11 ${meta.bubble}`}
                                     >
                                         <Icon
-                                            name={iconForCategory(category)}
+                                            name={category.icon || iconForCategory(category)}
                                             className="h-5 w-5"
                                         />
                                     </span>
@@ -323,14 +332,27 @@ export default function Index({ categories }) {
                                         <p className="text-xs text-slate-500">
                                             {category.transactions_count}{" "}
                                             transaksi
+                                            {!category.is_active ? ' • nonaktif' : ''}
                                         </p>
                                     </div>
 
-                                    <span
-                                        className={`hidden rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide sm:inline-flex ${meta.chip}`}
-                                    >
-                                        {meta.label}
-                                    </span>
+                                    <div className="hidden flex-col items-end gap-1 sm:flex">
+                                        <span
+                                            className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${meta.chip}`}
+                                        >
+                                            {meta.label}
+                                        </span>
+                                        {category.is_default && (
+                                            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                                                Default
+                                            </span>
+                                        )}
+                                        {!category.is_active && (
+                                            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-700">
+                                                Nonaktif
+                                            </span>
+                                        )}
+                                    </div>
                                 </button>
                             );
                         })}
@@ -469,6 +491,53 @@ export default function Index({ categories }) {
                             />
                         </div>
 
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div>
+                                <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                                    Icon
+                                </span>
+                                <input
+                                    className="mt-2 w-full rounded-2xl border-slate-200 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                                    value={form.data.icon}
+                                    onChange={(event) => form.setData('icon', event.target.value)}
+                                    placeholder="Contoh: food, cart, bills"
+                                />
+                                <InputError message={form.errors.icon} className="mt-2" />
+                            </div>
+
+                            <div>
+                                <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                                    Warna
+                                </span>
+                                <input
+                                    className="mt-2 w-full rounded-2xl border-slate-200 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                                    value={form.data.color}
+                                    onChange={(event) => form.setData('color', event.target.value)}
+                                    placeholder="Contoh: emerald, rose"
+                                />
+                                <InputError message={form.errors.color} className="mt-2" />
+                            </div>
+                        </div>
+
+                        {editingCategory && (
+                            <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 transition hover:border-primary-200 hover:bg-primary-50/40">
+                                <input
+                                    type="checkbox"
+                                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                                    checked={Boolean(form.data.is_active)}
+                                    onChange={(event) => form.setData('is_active', event.target.checked)}
+                                />
+                                <span>
+                                    <span className="block text-sm font-bold text-slate-700">
+                                        Aktifkan kategori
+                                    </span>
+                                    <span className="mt-0.5 block text-xs leading-5 text-slate-500">
+                                        Kategori aktif muncul sebagai pilihan transaksi baru.
+                                    </span>
+                                </span>
+                            </label>
+                        )}
+
                         {editingCategory &&
                             Number(editingCategory.transactions_count ?? 0) >
                                 0 && (
@@ -476,8 +545,8 @@ export default function Index({ categories }) {
                                     <p className="text-xs font-semibold leading-5 text-amber-700">
                                         Kategori ini sudah dipakai pada{" "}
                                         {editingCategory.transactions_count}{" "}
-                                        transaksi sehingga tidak dapat dihapus.
-                                        Kamu tetap bisa mengganti namanya.
+                                        transaksi sehingga tombol hapus akan menonaktifkan kategori.
+                                        Kamu tetap bisa mengganti nama atau mengaktifkannya kembali.
                                     </p>
                                 </div>
                             )}
@@ -498,7 +567,7 @@ export default function Index({ categories }) {
                                     className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600 transition hover:bg-rose-100 sm:w-auto"
                                 >
                                     <Icon name="trash" className="h-4 w-4" />
-                                    Hapus
+                                    {Number(editingCategory.transactions_count ?? 0) > 0 ? 'Nonaktifkan' : 'Hapus'}
                                 </button>
                             ) : null}
 

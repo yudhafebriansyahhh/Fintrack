@@ -18,6 +18,7 @@ class CategoryController extends Controller
             'categories' => $request->user()
                 ->categories()
                 ->withCount('transactions')
+                ->orderByDesc('is_active')
                 ->latest()
                 ->get(),
         ]);
@@ -25,7 +26,10 @@ class CategoryController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $request->user()->categories()->create($this->validated($request));
+        $request->user()->categories()->create($this->validated($request) + [
+            'is_default' => false,
+            'is_active' => true,
+        ]);
 
         return back()->with('success', 'Kategori berhasil ditambahkan.');
     }
@@ -39,14 +43,14 @@ class CategoryController extends Controller
         return back()->with('success', 'Kategori berhasil diperbarui.');
     }
 
-    public function destroy(Request $request, Category $category): RedirectResponse
+    public function destroy(Category $category): RedirectResponse
     {
         $this->authorize('delete', $category);
 
         if ($category->transactions()->exists()) {
-            return back()->withErrors([
-                'category' => 'Kategori yang sudah memiliki transaksi tidak dapat dihapus.',
-            ]);
+            $category->update(['is_active' => false]);
+
+            return back()->with('success', 'Kategori memiliki riwayat transaksi, jadi dinonaktifkan.');
         }
 
         $category->delete();
@@ -70,6 +74,9 @@ class CategoryController extends Controller
         return $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'type' => ['required', Rule::in(['income', 'expense'])],
+            'icon' => ['nullable', 'string', 'max:50'],
+            'color' => ['nullable', 'string', 'max:30'],
+            'is_active' => ['sometimes', 'boolean'],
         ]);
     }
 
