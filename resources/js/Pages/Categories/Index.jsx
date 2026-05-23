@@ -385,6 +385,8 @@ export default function Index({ categories }) {
                     <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
                         {visibleCategories.map((category) => {
                             const meta = typeMeta[category.type];
+                            const iconKey = category.icon || iconForCategory(category);
+                            const LucideIcon = lucideIconFor(iconKey);
 
                             return (
                                 <button
@@ -396,10 +398,11 @@ export default function Index({ categories }) {
                                     <span
                                         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl sm:h-11 sm:w-11 ${meta.bubble}`}
                                     >
-                                        <Icon
-                                            name={category.icon || iconForCategory(category)}
-                                            className="h-5 w-5"
-                                        />
+                                        {LucideIcon ? (
+                                            <LucideIcon className="h-5 w-5" strokeWidth={2.1} />
+                                        ) : (
+                                            <Icon name={iconKey} className="h-5 w-5" />
+                                        )}
                                     </span>
 
                                     <div className="min-w-0 flex-1">
