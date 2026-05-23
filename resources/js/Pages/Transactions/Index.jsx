@@ -1,3 +1,6 @@
+import Autocomplete from "@/Components/Autocomplete";
+import DatePicker from "@/Components/DatePicker";
+import FormDropdown from "@/Components/FormDropdown";
 import Icon from "@/Components/Icon";
 import InputError from "@/Components/InputError";
 import Modal from "@/Components/Modal";
@@ -807,31 +810,19 @@ export default function Index({
                     <form onSubmit={submit}>
                         <div className="grid max-h-[70vh] gap-4 overflow-y-auto px-5 py-5 sm:grid-cols-2 sm:px-6 lg:grid-cols-6">
                             <div className="sm:col-span-2 lg:col-span-2">
-                                <label className="text-xs font-bold uppercase text-slate-500">
+                                <span className="text-xs font-bold uppercase text-slate-500">
                                     Tipe
-                                </label>
-                                <div className="mt-1 grid grid-cols-2 overflow-hidden rounded-2xl border border-slate-200 text-sm font-bold">
-                                    {["expense", "income"].map((type) => (
-                                        <button
-                                            type="button"
-                                            key={type}
-                                            onClick={() =>
-                                                handleTypeChange(type)
-                                            }
-                                            className={`px-3 py-2 transition ${
-                                                form.data.type === type
-                                                    ? type === "income"
-                                                        ? "bg-emerald-500 text-white"
-                                                        : "bg-primary-600 text-white"
-                                                    : "bg-white text-slate-600 hover:bg-slate-50"
-                                            }`}
-                                        >
-                                            {type === "income"
-                                                ? "Pemasukan"
-                                                : "Pengeluaran"}
-                                        </button>
-                                    ))}
-                                </div>
+                                </span>
+                                <FormDropdown
+                                    className="mt-1"
+                                    value={form.data.type}
+                                    onChange={(value) => handleTypeChange(value)}
+                                    placeholder="Pilih tipe"
+                                    options={[
+                                        { value: "expense", label: "Pengeluaran" },
+                                        { value: "income", label: "Pemasukan" },
+                                    ]}
+                                />
                                 <InputError
                                     message={form.errors.type}
                                     className="mt-1"
@@ -839,29 +830,20 @@ export default function Index({
                             </div>
 
                             <div className="lg:col-span-2">
-                                <label className="text-xs font-bold uppercase text-slate-500">
+                                <span className="text-xs font-bold uppercase text-slate-500">
                                     Dompet
-                                </label>
-                                <select
-                                    className="mt-1 block w-full rounded-2xl border-slate-200 text-sm focus:border-primary-500 focus:ring-primary-500"
+                                </span>
+                                <Autocomplete
+                                    className="mt-1"
                                     value={form.data.wallet_id}
-                                    onChange={(event) =>
-                                        form.setData(
-                                            "wallet_id",
-                                            event.target.value,
-                                        )
-                                    }
-                                >
-                                    <option value="">Pilih dompet</option>
-                                    {activeWallets.map((wallet) => (
-                                        <option
-                                            key={wallet.id}
-                                            value={wallet.id}
-                                        >
-                                            {wallet.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                    onChange={(value) => form.setData("wallet_id", value)}
+                                    options={activeWallets}
+                                    getOptionLabel={(wallet) => wallet.name}
+                                    getOptionValue={(wallet) => wallet.id}
+                                    placeholder="Cari dompet"
+                                    emptyText="Dompet tidak ditemukan."
+                                    leadingIcon="wallet"
+                                />
                                 <InputError
                                     message={form.errors.wallet_id}
                                     className="mt-1"
@@ -869,29 +851,20 @@ export default function Index({
                             </div>
 
                             <div className="lg:col-span-2">
-                                <label className="text-xs font-bold uppercase text-slate-500">
+                                <span className="text-xs font-bold uppercase text-slate-500">
                                     Kategori
-                                </label>
-                                <select
-                                    className="mt-1 block w-full rounded-2xl border-slate-200 text-sm focus:border-primary-500 focus:ring-primary-500"
+                                </span>
+                                <Autocomplete
+                                    className="mt-1"
                                     value={form.data.category_id}
-                                    onChange={(event) =>
-                                        form.setData(
-                                            "category_id",
-                                            event.target.value,
-                                        )
-                                    }
-                                >
-                                    <option value="">Pilih kategori</option>
-                                    {filteredCategories.map((category) => (
-                                        <option
-                                            key={category.id}
-                                            value={category.id}
-                                        >
-                                            {category.name}
-                                        </option>
-                                    ))}
-                                </select>
+                                    onChange={(value) => form.setData("category_id", value)}
+                                    options={filteredCategories}
+                                    getOptionLabel={(category) => category.name}
+                                    getOptionValue={(category) => category.id}
+                                    placeholder="Cari kategori"
+                                    emptyText="Kategori tidak ditemukan."
+                                    leadingIcon="filter"
+                                />
                                 {filteredCategories.length === 0 && (
                                     <p className="mt-1 text-xs text-slate-500">
                                         Belum ada kategori untuk tipe ini.{" "}
@@ -910,14 +883,14 @@ export default function Index({
                             </div>
 
                             <div className="lg:col-span-2">
-                                <label className="text-xs font-bold uppercase text-slate-500">
+                                <span className="text-xs font-bold uppercase text-slate-500">
                                     Nominal
-                                </label>
+                                </span>
                                 <input
                                     type="number"
                                     min="0"
                                     step="0.01"
-                                    className="mt-1 block w-full rounded-2xl border-slate-200 text-sm focus:border-primary-500 focus:ring-primary-500"
+                                    className="mt-1 block w-full rounded-2xl border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold shadow-sm transition focus:border-primary-400 focus:bg-white focus:ring-4 focus:ring-primary-100"
                                     value={form.data.amount}
                                     onChange={(event) =>
                                         form.setData(
@@ -935,19 +908,14 @@ export default function Index({
                             </div>
 
                             <div className="lg:col-span-2">
-                                <label className="text-xs font-bold uppercase text-slate-500">
+                                <span className="text-xs font-bold uppercase text-slate-500">
                                     Tanggal
-                                </label>
-                                <input
-                                    type="date"
-                                    className="mt-1 block w-full rounded-2xl border-slate-200 text-sm focus:border-primary-500 focus:ring-primary-500"
+                                </span>
+                                <DatePicker
+                                    className="mt-1"
                                     value={form.data.transaction_date}
-                                    onChange={(event) =>
-                                        form.setData(
-                                            "transaction_date",
-                                            event.target.value,
-                                        )
-                                    }
+                                    onChange={(value) => form.setData("transaction_date", value)}
+                                    placeholder="Pilih tanggal"
                                 />
                                 <InputError
                                     message={form.errors.transaction_date}
@@ -956,12 +924,12 @@ export default function Index({
                             </div>
 
                             <div className="sm:col-span-2 lg:col-span-2">
-                                <label className="text-xs font-bold uppercase text-slate-500">
+                                <span className="text-xs font-bold uppercase text-slate-500">
                                     Deskripsi
-                                </label>
+                                </span>
                                 <input
                                     type="text"
-                                    className="mt-1 block w-full rounded-2xl border-slate-200 text-sm focus:border-primary-500 focus:ring-primary-500"
+                                    className="mt-1 block w-full rounded-2xl border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold shadow-sm transition placeholder:text-slate-400 focus:border-primary-400 focus:bg-white focus:ring-4 focus:ring-primary-100"
                                     value={form.data.description}
                                     onChange={(event) =>
                                         form.setData(
