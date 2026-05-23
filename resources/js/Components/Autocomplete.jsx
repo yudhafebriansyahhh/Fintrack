@@ -110,12 +110,12 @@ export default function Autocomplete({
                                 }`}
                             >
                                 {(optionImage || leadingIcon) && (
-                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+                                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center text-slate-500 ${!optionImage ? 'rounded-xl bg-slate-100' : ''}`}>
                                         {optionImage ? (
                                             <img
                                                 src={optionImage}
                                                 alt=""
-                                                className="h-6 w-6 object-contain"
+                                                className="h-8 w-8 object-contain"
                                             />
                                         ) : (
                                             <Icon name={leadingIcon} className="h-4 w-4" />

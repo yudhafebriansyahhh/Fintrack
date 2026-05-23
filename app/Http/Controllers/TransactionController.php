@@ -34,8 +34,89 @@ class TransactionController extends Controller
         $perPage = (int) ($filters['per_page'] ?? 10);
         $chartPeriod = $filters['chart_period'] ?? 'monthly';
 
-        $baseQuery = $user->transactions()
-            ->with(['wallet:id,name,type', 'category:id,name,type'])
+        $transactionsQuery = DB::table('transactions')
+            ->select(
+                'id',
+                DB::raw("'transaction' as kind"),
+                'type',
+                'amount',
+                'transaction_date',
+                'description',
+                'category_id',
+                'wallet_id',
+                DB::raw('null as from_wallet_id'),
+                DB::raw('null as to_wallet_id')
+            )
+            ->where('user_id', $user->id)
+            ->when($filters['type'] ?? null, function ($q, $type) {
+                if ($type === 'transfer') {
+                    $q->whereRaw('1 = 0');
+                } else {
+                    $q->where('type', $type);
+                }
+            })
+            ->when($filters['wallet_id'] ?? null, fn ($q, $id) => $q->where('wallet_id', $id))
+            ->when($filters['category_id'] ?? null, fn ($q, $id) => $q->where('category_id', $id))
+            ->when($filters['from'] ?? null, fn ($q, $from) => $q->whereDate('transaction_date', '>=', $from))
+            ->when($filters['to'] ?? null, fn ($q, $to) => $q->whereDate('transaction_date', '<=', $to))
+            ->when($filters['search'] ?? null, fn ($q, $search) => $q->where('description', 'like', "%{$search}%"));
+
+        $transfersQuery = DB::table('wallet_transfers')
+            ->select(
+                'id',
+                DB::raw("'transfer' as kind"),
+                DB::raw("'transfer' as type"),
+                'amount',
+                'transfer_date as transaction_date',
+                'description',
+                DB::raw('null as category_id'),
+                DB::raw('null as wallet_id'),
+                'from_wallet_id',
+                'to_wallet_id'
+            )
+            ->where('user_id', $user->id)
+            ->when($filters['wallet_id'] ?? null, function ($q, $id) {
+                $q->where(function ($q2) use ($id) {
+                    $q2->where('from_wallet_id', $id)->orWhere('to_wallet_id', $id);
+                });
+            })
+            ->when($filters['from'] ?? null, fn ($q, $from) => $q->whereDate('transfer_date', '>=', $from))
+            ->when($filters['to'] ?? null, fn ($q, $to) => $q->whereDate('transfer_date', '<=', $to))
+            ->when($filters['search'] ?? null, fn ($q, $search) => $q->where('description', 'like', "%{$search}%"));
+
+        if ((($filters['type'] ?? null) && $filters['type'] !== 'transfer') || ($filters['category_id'] ?? null)) {
+            $transfersQuery->whereRaw('1 = 0');
+        }
+
+        $combinedQuery = $transactionsQuery->clone()->unionAll($transfersQuery);
+
+        $query = DB::table(DB::raw("({$combinedQuery->toSql()}) as activities"))
+            ->mergeBindings($combinedQuery)
+            ->orderByDesc('transaction_date')
+            ->orderByDesc('id');
+
+        $paginated = $query->paginate($perPage)->withQueryString();
+
+        $categoryIds = collect($paginated->items())->pluck('category_id')->filter()->unique();
+        $walletIds = collect($paginated->items())->flatMap(function ($item) {
+            return [$item->wallet_id, $item->from_wallet_id, $item->to_wallet_id];
+        })->filter()->unique();
+
+        $categoriesDict = Category::whereIn('id', $categoryIds)->get(['id', 'name', 'type'])->keyBy('id');
+        $walletsDict = Wallet::whereIn('id', $walletIds)->get(['id', 'name', 'type'])->keyBy('id');
+
+        $paginated->getCollection()->transform(function ($item) use ($categoriesDict, $walletsDict) {
+            $item->category = $item->category_id ? $categoriesDict->get($item->category_id) : null;
+            $item->wallet = $item->wallet_id ? $walletsDict->get($item->wallet_id) : null;
+            $item->from_wallet = $item->from_wallet_id ? $walletsDict->get($item->from_wallet_id) : null;
+            $item->to_wallet = $item->to_wallet_id ? $walletsDict->get($item->to_wallet_id) : null;
+            return $item;
+        });
+
+        $income = (float) (clone $transactionsQuery)->where('type', 'income')->sum('amount');
+        $expense = (float) (clone $transactionsQuery)->where('type', 'expense')->sum('amount');
+
+        $baseModelQuery = $user->transactions()
             ->when($filters['type'] ?? null, fn ($q, $type) => $q->where('transactions.type', $type))
             ->when($filters['wallet_id'] ?? null, fn ($q, $id) => $q->where('transactions.wallet_id', $id))
             ->when($filters['category_id'] ?? null, fn ($q, $id) => $q->where('transactions.category_id', $id))
@@ -43,22 +124,21 @@ class TransactionController extends Controller
             ->when($filters['to'] ?? null, fn ($q, $to) => $q->whereDate('transactions.transaction_date', '<=', $to))
             ->when($filters['search'] ?? null, fn ($q, $search) => $q->where('transactions.description', 'like', "%{$search}%"));
 
-        $transactions = (clone $baseQuery)
-            ->latest('transaction_date')
-            ->latest('id')
-            ->paginate($perPage)
-            ->withQueryString();
-
         $filters['per_page'] = $perPage;
         $filters['chart_period'] = $chartPeriod;
 
         return Inertia::render('Transactions/Index', [
-            'transactions' => $transactions,
-            'wallets' => $user->wallets()->orderBy('name')->get(['id', 'name', 'type', 'is_active']),
+            'transactions' => $paginated,
+            'wallets' => $user->wallets()->with('provider:id,logo')->orderBy('name')->get(['id', 'name', 'type', 'is_active', 'wallet_provider_id', 'custom_logo']),
             'categories' => $user->categories()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'type']),
             'filters' => $filters,
-            'categoryDistribution' => $this->categoryDistribution(clone $baseQuery, $chartPeriod),
-            'trend' => $this->trend(clone $baseQuery, $chartPeriod),
+            'categoryDistribution' => $this->categoryDistribution(clone $baseModelQuery, $chartPeriod),
+            'trend' => $this->trend(clone $baseModelQuery, $chartPeriod),
+            'summary' => [
+                'income' => $income,
+                'expense' => $expense,
+                'net' => $income - $expense,
+            ],
         ]);
     }
 
@@ -69,6 +149,12 @@ class TransactionController extends Controller
         DB::transaction(function () use ($request, $data) {
             $wallet = $this->ownWallet($request, (int) $data['wallet_id']);
             $this->ownCategory($request, (int) $data['category_id'], $data['type']);
+
+            if ($data['type'] === 'expense' && $data['amount'] > $wallet->current_balance) {
+                throw ValidationException::withMessages([
+                    'amount' => 'Nominal pengeluaran melebihi saldo dompet saat ini (Tersedia: ' . number_format($wallet->current_balance, 0, ',', '.') . ').',
+                ]);
+            }
 
             $request->user()->transactions()->create($data);
 
@@ -88,13 +174,29 @@ class TransactionController extends Controller
             $oldWallet = $transaction->wallet()->lockForUpdate()->first();
             $this->ownCategory($request, (int) $data['category_id'], $data['type']);
 
+            $newWalletId = (int) $data['wallet_id'];
+            $newWallet = $oldWallet->id === $newWalletId
+                ? $oldWallet
+                : $this->ownWallet($request, $newWalletId);
+
+            $availableBalance = $newWallet->current_balance;
+            if ($oldWallet->id === $newWalletId) {
+                $availableBalance += $transaction->type === 'expense' ? $transaction->amount : -$transaction->amount;
+            }
+
+            if ($data['type'] === 'expense' && $data['amount'] > $availableBalance) {
+                throw ValidationException::withMessages([
+                    'amount' => 'Nominal pengeluaran melebihi saldo dompet tujuan (Tersedia: ' . number_format($availableBalance, 0, ',', '.') . ').',
+                ]);
+            }
+
             $this->applyAmount($oldWallet, $transaction->type, -(float) $transaction->amount);
 
             $transaction->update($data);
 
-            $newWallet = $oldWallet->id === (int) $data['wallet_id']
-                ? $oldWallet->refresh()
-                : $this->ownWallet($request, (int) $data['wallet_id']);
+            if ($oldWallet->id !== $newWalletId) {
+                // If it changed wallet, we need to refresh old wallet? Not necessarily, it's not the same instance.
+            }
 
             $this->applyAmount($newWallet, $data['type'], (float) $data['amount']);
         });

@@ -45,8 +45,18 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
-const transactionAccent = (transaction) =>
-    transaction?.type === "income"
+const transactionAccent = (transaction) => {
+    if (transaction?.type === "transfer") {
+        return {
+            bubble: "bg-sky-50 text-sky-600",
+            chip: "bg-sky-50 text-sky-700",
+            amount: "text-sky-600",
+            sign: "",
+            icon: "exchange",
+            label: "Transfer",
+        };
+    }
+    return transaction?.type === "income"
         ? {
               bubble: "bg-emerald-50 text-emerald-600",
               chip: "bg-emerald-50 text-emerald-700",
@@ -63,11 +73,16 @@ const transactionAccent = (transaction) =>
               icon: "receipt",
               label: "Pengeluaran",
           };
+};
 
-const transactionTitle = (transaction) =>
-    transaction?.description?.trim() ||
-    transaction?.category?.name ||
-    "Tanpa keterangan";
+const transactionTitle = (transaction) => {
+    if (transaction?.type === "transfer") {
+        return transaction.description?.trim() || "Pindah saldo";
+    }
+    return transaction?.description?.trim() ||
+           transaction?.category?.name ||
+           "Tanpa keterangan";
+};
 
 export default function Index({
     transactions,
@@ -76,6 +91,7 @@ export default function Index({
     filters,
     categoryDistribution = [],
     trend = [],
+    summary = { income: 0, expense: 0, net: 0 },
 }) {
     const { flash } = usePage().props;
 
@@ -96,9 +112,19 @@ export default function Index({
     const perPage = Number(filters?.per_page ?? PER_PAGE_OPTIONS[0]);
     const chartPeriod = filters?.chart_period ?? "monthly";
 
-    const form = useForm({
+    const {
+        data,
+        setData,
+        post,
+        put,
+        processing,
+        errors,
+        reset,
+        clearErrors,
+    } = useForm({
         type: "expense",
         wallet_id: "",
+        to_wallet_id: "",
         category_id: "",
         amount: "",
         transaction_date: today(),
@@ -106,30 +132,20 @@ export default function Index({
     });
 
     const filteredCategories = useMemo(
-        () => categories.filter((category) => category.type === form.data.type),
-        [categories, form.data.type],
+        () => categories.filter((category) => category.type === data.type),
+        [categories, data.type],
     );
 
     const activeWallets = useMemo(
         () =>
             wallets.filter(
                 (wallet) =>
-                    wallet.is_active || wallet.id === form.data.wallet_id,
+                    wallet.is_active || wallet.id === data.wallet_id,
             ),
-        [wallets, form.data.wallet_id],
+        [wallets, data.wallet_id],
     );
 
-    const totals = useMemo(() => {
-        return (transactions?.data ?? []).reduce(
-            (acc, item) => {
-                const amount = Number(item.amount);
-                if (item.type === "income") acc.income += amount;
-                else acc.expense += amount;
-                return acc;
-            },
-            { income: 0, expense: 0 },
-        );
-    }, [transactions]);
+    // The `summary` is now provided by backend for the global filters
 
     const hasActiveFilters = useMemo(() => {
         return Boolean(
@@ -172,11 +188,12 @@ export default function Index({
 
     const resetForm = () => {
         setEditing(null);
-        form.reset();
-        form.clearErrors();
-        form.setData({
+        reset();
+        clearErrors();
+        setData({
             type: "expense",
             wallet_id: "",
+            to_wallet_id: "",
             category_id: "",
             amount: "",
             transaction_date: today(),
@@ -195,7 +212,7 @@ export default function Index({
     };
 
     const handleTypeChange = (type) => {
-        form.setData((current) => ({
+        setData((current) => ({
             ...current,
             type,
             category_id:
@@ -207,8 +224,28 @@ export default function Index({
         }));
     };
 
-    const submit = (event) => {
-        event.preventDefault();
+    const submit = (e) => {
+        e.preventDefault();
+        
+        if (data.type === "transfer") {
+            router.post(
+                route("wallet-transfers.store"),
+                {
+                    from_wallet_id: data.wallet_id,
+                    to_wallet_id: data.to_wallet_id,
+                    amount: data.amount,
+                    transfer_date: data.transaction_date,
+                    description: data.description,
+                },
+                {
+                    onSuccess: () => {
+                        toastSuccess("Transfer dicatat");
+                        closeForm();
+                    },
+                }
+            );
+            return;
+        }
 
         const options = {
             preserveScroll: true,
@@ -222,11 +259,11 @@ export default function Index({
         };
 
         if (editing) {
-            form.patch(route("transactions.update", editing.id), options);
+            put(route("transactions.update", editing.id), options);
             return;
         }
 
-        form.post(route("transactions.store"), options);
+        post(route("transactions.store"), options);
     };
 
     const openDetail = (transaction) => setDetailTransaction(transaction);
@@ -234,7 +271,7 @@ export default function Index({
     const closeDetail = () => setDetailTransaction(null);
 
     const startEditFromDetail = () => {
-        if (!detailTransaction) return;
+        if (!detailTransaction || detailTransaction.type === "transfer") return;
 
         setEditing(detailTransaction);
         form.clearErrors();
@@ -342,26 +379,22 @@ export default function Index({
 
                 <section className="grid gap-3 sm:grid-cols-3">
                     <SummaryCard
-                        label="Pemasukan Halaman"
-                        value={formatRupiah(totals.income)}
+                        label="Total Pemasukan"
+                        value={formatRupiah(summary.income)}
                         icon="arrowDown"
                         tone="green"
                     />
                     <SummaryCard
-                        label="Pengeluaran Halaman"
-                        value={formatRupiah(totals.expense)}
+                        label="Total Pengeluaran"
+                        value={formatRupiah(summary.expense)}
                         icon="arrowUp"
                         tone="red"
                     />
                     <SummaryCard
-                        label="Selisih Halaman"
-                        value={formatSignedRupiah(
-                            totals.income - totals.expense,
-                        )}
+                        label="Total Selisih"
+                        value={formatSignedRupiah(summary.net)}
                         icon="exchange"
-                        tone={
-                            totals.income - totals.expense >= 0 ? "blue" : "red"
-                        }
+                        tone={summary.net >= 0 ? "blue" : "red"}
                     />
                 </section>
 
@@ -419,83 +452,86 @@ export default function Index({
                             filterOpen ? "grid" : "hidden lg:grid"
                         }`}
                     >
-                        <select
-                            className="rounded-2xl border-slate-200 text-sm focus:border-primary-500 focus:ring-primary-500"
+                        <FormDropdown
                             value={filterDraft.type}
-                            onChange={(event) =>
+                            onChange={(value) =>
                                 setFilterDraft((draft) => ({
                                     ...draft,
-                                    type: event.target.value,
+                                    type: value,
                                 }))
                             }
-                        >
-                            <option value="">Semua tipe</option>
-                            <option value="income">Pemasukan</option>
-                            <option value="expense">Pengeluaran</option>
-                        </select>
-
-                        <select
-                            className="rounded-2xl border-slate-200 text-sm focus:border-primary-500 focus:ring-primary-500"
-                            value={filterDraft.wallet_id}
-                            onChange={(event) =>
-                                setFilterDraft((draft) => ({
-                                    ...draft,
-                                    wallet_id: event.target.value,
-                                }))
-                            }
-                        >
-                            <option value="">Semua dompet</option>
-                            {wallets.map((wallet) => (
-                                <option key={wallet.id} value={wallet.id}>
-                                    {wallet.name}
-                                </option>
-                            ))}
-                        </select>
-
-                        <select
-                            className="rounded-2xl border-slate-200 text-sm focus:border-primary-500 focus:ring-primary-500"
-                            value={filterDraft.category_id}
-                            onChange={(event) =>
-                                setFilterDraft((draft) => ({
-                                    ...draft,
-                                    category_id: event.target.value,
-                                }))
-                            }
-                        >
-                            <option value="">Semua kategori</option>
-                            {categories.map((category) => (
-                                <option key={category.id} value={category.id}>
-                                    {category.name} (
-                                    {category.type === "income"
-                                        ? "pemasukan"
-                                        : "pengeluaran"}
-                                    )
-                                </option>
-                            ))}
-                        </select>
-
-                        <input
-                            type="date"
-                            className="rounded-2xl border-slate-200 text-sm focus:border-primary-500 focus:ring-primary-500"
-                            value={filterDraft.from}
-                            onChange={(event) =>
-                                setFilterDraft((draft) => ({
-                                    ...draft,
-                                    from: event.target.value,
-                                }))
-                            }
+                            placeholder="Semua tipe"
+                            options={[
+                                { value: "", label: "Semua tipe" },
+                                { value: "income", label: "Pemasukan" },
+                                { value: "expense", label: "Pengeluaran" },
+                                { value: "transfer", label: "Transfer" },
+                            ]}
                         />
 
-                        <input
-                            type="date"
-                            className="rounded-2xl border-slate-200 text-sm focus:border-primary-500 focus:ring-primary-500"
-                            value={filterDraft.to}
-                            onChange={(event) =>
+                        <Autocomplete
+                            value={filterDraft.wallet_id}
+                            onChange={(value) =>
                                 setFilterDraft((draft) => ({
                                     ...draft,
-                                    to: event.target.value,
+                                    wallet_id: value,
                                 }))
                             }
+                            options={[
+                                { id: "", name: "Semua dompet" },
+                                ...wallets,
+                            ]}
+                            getOptionLabel={(wallet) => wallet.name}
+                            getOptionValue={(wallet) => wallet.id}
+                            getOptionImage={(wallet) => wallet.provider?.logo || wallet.custom_logo || null}
+                            placeholder="Semua dompet"
+                            emptyText="Dompet tidak ditemukan."
+                            leadingIcon="wallet"
+                        />
+
+                        <Autocomplete
+                            value={filterDraft.category_id}
+                            onChange={(value) =>
+                                setFilterDraft((draft) => ({
+                                    ...draft,
+                                    category_id: value,
+                                }))
+                            }
+                            options={[
+                                { id: "", name: "Semua kategori" },
+                                ...categories,
+                            ]}
+                            getOptionLabel={(category) =>
+                                category.id === ""
+                                    ? category.name
+                                    : `${category.name} (${category.type === "income" ? "pemasukan" : "pengeluaran"})`
+                            }
+                            getOptionValue={(category) => category.id}
+                            placeholder="Semua kategori"
+                            emptyText="Kategori tidak ditemukan."
+                            leadingIcon="filter"
+                        />
+
+                        <DatePicker
+                            value={filterDraft.from}
+                            onChange={(value) =>
+                                setFilterDraft((draft) => ({
+                                    ...draft,
+                                    from: value,
+                                }))
+                            }
+                            placeholder="Dari tanggal"
+                        />
+
+                        <DatePicker
+                            value={filterDraft.to}
+                            onChange={(value) =>
+                                setFilterDraft((draft) => ({
+                                    ...draft,
+                                    to: value,
+                                }))
+                            }
+                            placeholder="Sampai tanggal"
                         />
 
                         <div className="flex gap-2 md:col-span-3 lg:col-span-1">
@@ -534,20 +570,19 @@ export default function Index({
                             </p>
                         </div>
 
-                        <label className="inline-flex items-center gap-2 self-start rounded-2xl bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600">
+                        <div className="flex items-center gap-2 self-start rounded-2xl bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600">
                             <span>Per halaman</span>
-                            <select
-                                value={perPage}
-                                onChange={onPerPageChange}
-                                className="rounded-xl border-slate-200 bg-white text-sm focus:border-primary-500 focus:ring-primary-500"
-                            >
-                                {PER_PAGE_OPTIONS.map((option) => (
-                                    <option key={option} value={option}>
-                                        {option}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
+                            <FormDropdown
+                                className="w-24"
+                                buttonClassName="px-3 py-1.5 text-xs rounded-xl"
+                                value={String(perPage)}
+                                onChange={(value) => onPerPageChange({ target: { value } })}
+                                options={PER_PAGE_OPTIONS.map((opt) => ({
+                                    value: String(opt),
+                                    label: String(opt),
+                                }))}
+                            />
+                        </div>
                     </div>
 
                     <div className="overflow-x-auto">
@@ -573,7 +608,7 @@ export default function Index({
 
                                         return (
                                             <tr
-                                                key={transaction.id}
+                                                key={`${transaction.type}-${transaction.id}`}
                                                 onClick={() =>
                                                     openDetail(transaction)
                                                 }
@@ -596,16 +631,35 @@ export default function Index({
                                                     </span>
                                                 </td>
                                                 <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-700">
-                                                    {transaction.category
-                                                        ?.name ?? "-"}
+                                                    {transaction.type === "transfer" ? (
+                                                        <span>Transfer</span>
+                                                    ) : (
+                                                        transaction.category?.name ?? "-"
+                                                    )}
                                                 </td>
                                                 <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-700">
-                                                    {transaction.wallet?.name ??
-                                                        "-"}
+                                                    {transaction.type === "transfer" ? (
+                                                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-600">
+                                                            {transaction.from_wallet?.name ?? "-"} ➔ {transaction.to_wallet?.name ?? "-"}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                                                            <Icon
+                                                                name={
+                                                                    transaction.wallet?.type === "bank"
+                                                                        ? "bank"
+                                                                        : "wallet"
+                                                                }
+                                                                className="h-3.5 w-3.5 text-slate-400"
+                                                            />
+                                                            {transaction.wallet?.name ?? "-"}
+                                                        </span>
+                                                    )}
                                                 </td>
                                                 <td className="px-4 py-3 text-sm text-slate-700">
-                                                    {transaction.description?.trim() ||
-                                                        "-"}
+                                                    {transaction.type === "transfer"
+                                                        ? transaction.description?.trim() || "Pindah saldo"
+                                                        : transaction.description?.trim() || "-"}
                                                 </td>
                                                 <td
                                                     className={`whitespace-nowrap px-4 py-3 text-right text-sm font-bold ${accent.amount}`}
@@ -716,18 +770,52 @@ export default function Index({
                             </div>
 
                             <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                                <DetailRow
-                                    label="Kategori"
-                                    value={
-                                        detailTransaction.category?.name ?? "-"
-                                    }
-                                />
-                                <DetailRow
-                                    label="Dompet"
-                                    value={
-                                        detailTransaction.wallet?.name ?? "-"
-                                    }
-                                />
+                                {detailTransaction.type === "transfer" ? (
+                                    <>
+                                        <DetailRow
+                                            label="Dompet Asal"
+                                            value={
+                                                <span className="inline-flex items-center gap-1.5">
+                                                    {(detailTransaction.from_wallet?.provider?.logo || detailTransaction.from_wallet?.custom_logo) ? (
+                                                        <img src={detailTransaction.from_wallet?.provider?.logo || detailTransaction.from_wallet?.custom_logo} className="w-4 h-4 object-contain" alt=""/>
+                                                    ) : <Icon name="wallet" className="w-3.5 h-3.5 text-slate-400" />}
+                                                    {detailTransaction.from_wallet?.name ?? "-"}
+                                                </span>
+                                            }
+                                        />
+                                        <DetailRow
+                                            label="Dompet Tujuan"
+                                            value={
+                                                <span className="inline-flex items-center gap-1.5">
+                                                    {(detailTransaction.to_wallet?.provider?.logo || detailTransaction.to_wallet?.custom_logo) ? (
+                                                        <img src={detailTransaction.to_wallet?.provider?.logo || detailTransaction.to_wallet?.custom_logo} className="w-4 h-4 object-contain" alt=""/>
+                                                    ) : <Icon name="wallet" className="w-3.5 h-3.5 text-slate-400" />}
+                                                    {detailTransaction.to_wallet?.name ?? "-"}
+                                                </span>
+                                            }
+                                        />
+                                    </>
+                                ) : (
+                                    <>
+                                        <DetailRow
+                                            label="Kategori"
+                                            value={
+                                                detailTransaction.category?.name ?? "-"
+                                            }
+                                        />
+                                        <DetailRow
+                                            label="Dompet"
+                                            value={
+                                                <span className="inline-flex items-center gap-1.5">
+                                                    {(detailTransaction.wallet?.provider?.logo || detailTransaction.wallet?.custom_logo) ? (
+                                                        <img src={detailTransaction.wallet?.provider?.logo || detailTransaction.wallet?.custom_logo} className="w-4 h-4 object-contain" alt=""/>
+                                                    ) : <Icon name="wallet" className="w-3.5 h-3.5 text-slate-400" />}
+                                                    {detailTransaction.wallet?.name ?? "-"}
+                                                </span>
+                                            }
+                                        />
+                                    </>
+                                )}
                                 <DetailRow
                                     label="Tanggal"
                                     value={formatDateLong(
@@ -815,72 +903,98 @@ export default function Index({
                                 </span>
                                 <FormDropdown
                                     className="mt-1"
-                                    value={form.data.type}
+                                    value={data.type}
                                     onChange={(value) => handleTypeChange(value)}
                                     placeholder="Pilih tipe"
                                     options={[
                                         { value: "expense", label: "Pengeluaran" },
                                         { value: "income", label: "Pemasukan" },
+                                        ...(!editing ? [{ value: "transfer", label: "Transfer" }] : []),
                                     ]}
                                 />
                                 <InputError
-                                    message={form.errors.type}
+                                    message={errors.type}
                                     className="mt-1"
                                 />
                             </div>
 
                             <div>
                                 <span className="text-xs font-bold uppercase text-slate-500">
-                                    Dompet
+                                    {data.type === 'transfer' ? 'Dompet Asal' : 'Dompet'}
                                 </span>
                                 <Autocomplete
                                     className="mt-1"
-                                    value={form.data.wallet_id}
-                                    onChange={(value) => form.setData("wallet_id", value)}
+                                    value={data.wallet_id}
+                                    onChange={(value) => setData("wallet_id", value)}
                                     options={activeWallets}
                                     getOptionLabel={(wallet) => wallet.name}
                                     getOptionValue={(wallet) => wallet.id}
+                                    getOptionImage={(wallet) => wallet.provider?.logo || wallet.custom_logo || null}
                                     placeholder="Cari dompet"
                                     emptyText="Dompet tidak ditemukan."
                                     leadingIcon="wallet"
                                 />
                                 <InputError
-                                    message={form.errors.wallet_id}
+                                    message={errors.wallet_id || errors?.from_wallet_id}
                                     className="mt-1"
                                 />
                             </div>
 
-                            <div>
-                                <span className="text-xs font-bold uppercase text-slate-500">
-                                    Kategori
-                                </span>
-                                <Autocomplete
-                                    className="mt-1"
-                                    value={form.data.category_id}
-                                    onChange={(value) => form.setData("category_id", value)}
-                                    options={filteredCategories}
-                                    getOptionLabel={(category) => category.name}
-                                    getOptionValue={(category) => category.id}
-                                    placeholder="Cari kategori"
-                                    emptyText="Kategori tidak ditemukan."
-                                    leadingIcon="filter"
-                                />
-                                {filteredCategories.length === 0 && (
-                                    <p className="mt-1 text-xs text-slate-500">
-                                        Belum ada kategori untuk tipe ini.{" "}
-                                        <Link
-                                            href={route("categories.index")}
-                                            className="font-bold text-primary-600"
-                                        >
-                                            Tambah kategori
-                                        </Link>
-                                    </p>
-                                )}
-                                <InputError
-                                    message={form.errors.category_id}
-                                    className="mt-1"
-                                />
-                            </div>
+                            {data.type === "transfer" ? (
+                                <div>
+                                    <span className="text-xs font-bold uppercase text-slate-500">
+                                        Dompet Tujuan
+                                    </span>
+                                    <Autocomplete
+                                        className="mt-1"
+                                        value={data.to_wallet_id}
+                                        onChange={(value) => setData("to_wallet_id", value)}
+                                        options={activeWallets.filter(w => w.id !== data.wallet_id)}
+                                        getOptionLabel={(wallet) => wallet.name}
+                                        getOptionValue={(wallet) => wallet.id}
+                                        getOptionImage={(wallet) => wallet.provider?.logo || wallet.custom_logo || null}
+                                        placeholder="Cari dompet tujuan"
+                                        emptyText="Dompet tidak ditemukan."
+                                        leadingIcon="wallet"
+                                    />
+                                    <InputError
+                                        message={errors.to_wallet_id || errors?.to_wallet_id}
+                                        className="mt-1"
+                                    />
+                                </div>
+                            ) : (
+                                <div>
+                                    <span className="text-xs font-bold uppercase text-slate-500">
+                                        Kategori
+                                    </span>
+                                    <Autocomplete
+                                        className="mt-1"
+                                        value={data.category_id}
+                                        onChange={(value) => setData("category_id", value)}
+                                        options={filteredCategories}
+                                        getOptionLabel={(category) => category.name}
+                                        getOptionValue={(category) => category.id}
+                                        placeholder="Cari kategori"
+                                        emptyText="Kategori tidak ditemukan."
+                                        leadingIcon="filter"
+                                    />
+                                    {filteredCategories.length === 0 && (
+                                        <p className="mt-1 text-xs text-slate-500">
+                                            Belum ada kategori untuk tipe ini.{" "}
+                                            <Link
+                                                href={route("categories.index")}
+                                                className="font-bold text-primary-600"
+                                            >
+                                                Tambah kategori
+                                            </Link>
+                                        </p>
+                                    )}
+                                    <InputError
+                                        message={errors.category_id}
+                                        className="mt-1"
+                                    />
+                                </div>
+                            )}
 
                             <div>
                                 <span className="text-xs font-bold uppercase text-slate-500">
@@ -891,9 +1005,9 @@ export default function Index({
                                     min="0"
                                     step="0.01"
                                     className="mt-1 block w-full rounded-2xl border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold shadow-sm transition focus:border-primary-400 focus:bg-white focus:ring-4 focus:ring-primary-100"
-                                    value={form.data.amount}
+                                    value={data.amount}
                                     onChange={(event) =>
-                                        form.setData(
+                                        setData(
                                             "amount",
                                             event.target.value,
                                         )
@@ -902,7 +1016,7 @@ export default function Index({
                                     autoFocus
                                 />
                                 <InputError
-                                    message={form.errors.amount}
+                                    message={errors.amount}
                                     className="mt-1"
                                 />
                             </div>
@@ -913,12 +1027,13 @@ export default function Index({
                                 </span>
                                 <DatePicker
                                     className="mt-1"
-                                    value={form.data.transaction_date}
-                                    onChange={(value) => form.setData("transaction_date", value)}
+                                    value={data.transaction_date}
+                                    onChange={(value) => setData("transaction_date", value)}
                                     placeholder="Pilih tanggal"
+                                    placement="top"
                                 />
                                 <InputError
-                                    message={form.errors.transaction_date}
+                                    message={errors.transaction_date}
                                     className="mt-1"
                                 />
                             </div>
@@ -930,9 +1045,9 @@ export default function Index({
                                 <input
                                     type="text"
                                     className="mt-1 block w-full rounded-2xl border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold shadow-sm transition placeholder:text-slate-400 focus:border-primary-400 focus:bg-white focus:ring-4 focus:ring-primary-100"
-                                    value={form.data.description}
+                                    value={data.description}
                                     onChange={(event) =>
-                                        form.setData(
+                                        setData(
                                             "description",
                                             event.target.value,
                                         )
@@ -940,7 +1055,7 @@ export default function Index({
                                     placeholder="Opsional"
                                 />
                                 <InputError
-                                    message={form.errors.description}
+                                    message={errors.description}
                                     className="mt-1"
                                 />
                             </div>
@@ -957,10 +1072,10 @@ export default function Index({
 
                             <button
                                 type="submit"
-                                disabled={form.processing}
+                                disabled={processing}
                                 className="inline-flex items-center justify-center rounded-2xl bg-primary-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-primary-600/20 transition hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                {form.processing ? "Menyimpan…" : "Simpan"}
+                                {processing ? "Menyimpan…" : "Simpan"}
                             </button>
                         </div>
                     </form>

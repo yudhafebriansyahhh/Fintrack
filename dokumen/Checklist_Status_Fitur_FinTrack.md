@@ -179,3 +179,6 @@ Dokumen ini melacak kesesuaian fitur FinTrack terhadap PRD, rancangan alur kerja
 | 2026-05-23 | Autocomplete diperbaiki agar input search bisa diketik tanpa reset saat dropdown aktif. |
 | 2026-05-23 | Kategori transaksi dirapikan dengan icon, color, is_default, is_active, dan delete kategori berelasi berubah menjadi nonaktif. |
 | 2026-05-23 | Form kategori memakai icon picker visual berbasis Lucide React dengan daftar icon yang diperbanyak, sementara input warna disembunyikan dari UI. |
+| 2026-05-23 | Setup workflow: folder /dokumen/ ditambahkan ke .gitignore agar tidak di-push ke GitHub; dibuat scripts/push-update.ps1 dan scripts/update-checklist.ps1 untuk workflow update dokumen dan push kode; dibuat dokumen/WORKFLOW.md sebagai panduan lengkap. |
+| 2026-05-23 | Icon kategori di halaman index diupdate agar memakai komponen Lucide React langsung dari iconOptions (sama dengan tampilan di form tambah/edit kategori), dengan fallback ke komponen Icon lama jika icon tidak ditemukan. |
+| 2026-05-23 | Form transaksi di halaman Transactions/Index diupdate: tipe memakai FormDropdown, dompet dan kategori memakai Autocomplete searchable, tanggal memakai DatePicker custom, dan styling input nominal/deskripsi disamakan dengan komponen reusable lainnya. |

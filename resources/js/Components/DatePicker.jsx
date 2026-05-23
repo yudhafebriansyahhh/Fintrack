@@ -37,7 +37,7 @@ const monthLabel = (date) =>
         year: 'numeric',
     }).format(date);
 
-export default function DatePicker({ value, onChange, placeholder = 'Pilih tanggal', className = '' }) {
+export default function DatePicker({ value, onChange, placeholder = 'Pilih tanggal', className = '', placement = 'bottom' }) {
     const [open, setOpen] = useState(false);
     const [viewDate, setViewDate] = useState(() => toDate(value));
     const selectedDate = value ? toDate(value) : null;
@@ -83,7 +83,7 @@ export default function DatePicker({ value, onChange, placeholder = 'Pilih tangg
             </button>
 
             {open && (
-                <div className="absolute z-[100] mt-2 w-80 max-w-[calc(100vw-3rem)] rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-900/10">
+                <div className={`absolute z-[100] ${placement === 'top' ? 'bottom-full mb-2' : 'mt-2'} w-80 max-w-[calc(100vw-3rem)] rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-900/10`}>
                     <div className="flex items-center justify-between gap-3">
                         <button
                             type="button"

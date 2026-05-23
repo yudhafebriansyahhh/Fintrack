@@ -7,6 +7,7 @@ export default function FormDropdown({
     onChange,
     placeholder = 'Pilih data',
     className = '',
+    buttonClassName = 'px-4 py-3 text-sm rounded-2xl',
 }) {
     const [open, setOpen] = useState(false);
     const selected = options.find((option) => String(option.value) === String(value));
@@ -23,7 +24,7 @@ export default function FormDropdown({
             <button
                 type="button"
                 onClick={() => setOpen((current) => !current)}
-                className="flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm font-bold text-slate-800 shadow-sm transition hover:bg-white focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary-100"
+                className={`flex w-full items-center justify-between gap-3 border border-slate-200 bg-slate-50 text-left font-bold text-slate-800 shadow-sm transition hover:bg-white focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary-100 ${buttonClassName}`}
             >
                 <span className={selected ? 'text-slate-800' : 'text-slate-400'}>
                     {selected?.label ?? placeholder}
