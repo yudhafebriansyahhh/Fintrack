@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BillItem;
 use App\Models\Category;
+use App\Models\Wallet;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
