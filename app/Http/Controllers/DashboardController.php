@@ -3,9 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\BillItem;
-use App\Models\Transaction;
+use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -20,9 +21,10 @@ class DashboardController extends Controller
         $today = $now->copy()->startOfDay();
 
         $wallets = $user->wallets()
+            ->with('provider:id,logo')
             ->orderByDesc('is_active')
             ->orderBy('name')
-            ->get(['id', 'name', 'type', 'institution', 'current_balance', 'is_active']);
+            ->get(['id', 'name', 'type', 'institution', 'current_balance', 'is_active', 'wallet_provider_id', 'custom_logo']);
 
         $totalBalance = (float) $wallets->where('is_active', true)->sum('current_balance');
 
@@ -53,12 +55,62 @@ class DashboardController extends Controller
             ];
         });
 
-        $recentTransactions = $user->transactions()
-            ->with(['wallet:id,name', 'category:id,name,type'])
-            ->latest('transaction_date')
-            ->latest('id')
+        $transactionsActivityQuery = DB::table('transactions')
+            ->select(
+                'id',
+                DB::raw("'transaction' as kind"),
+                'type',
+                'amount',
+                'transaction_date',
+                'description',
+                'category_id',
+                'wallet_id',
+                DB::raw('null as from_wallet_id'),
+                DB::raw('null as to_wallet_id')
+            )
+            ->where('user_id', $user->id);
+
+        $transfersActivityQuery = DB::table('wallet_transfers')
+            ->select(
+                'id',
+                DB::raw("'transfer' as kind"),
+                DB::raw("'transfer' as type"),
+                'amount',
+                'transfer_date as transaction_date',
+                'description',
+                DB::raw('null as category_id'),
+                DB::raw('null as wallet_id'),
+                'from_wallet_id',
+                'to_wallet_id'
+            )
+            ->where('user_id', $user->id);
+
+        $combinedActivityQuery = $transactionsActivityQuery->clone()->unionAll($transfersActivityQuery);
+        $recentTransactions = DB::table(DB::raw("({$combinedActivityQuery->toSql()}) as activities"))
+            ->mergeBindings($combinedActivityQuery)
+            ->orderByDesc('transaction_date')
+            ->orderByDesc('id')
             ->limit(6)
             ->get();
+
+        $categoryIds = $recentTransactions->pluck('category_id')->filter()->unique();
+        $walletIds = $recentTransactions->flatMap(function ($item) {
+            return [$item->wallet_id, $item->from_wallet_id, $item->to_wallet_id];
+        })->filter()->unique();
+
+        $categoriesDict = Category::whereIn('id', $categoryIds)->get(['id', 'name', 'type'])->keyBy('id');
+        $walletsDict = Wallet::whereIn('id', $walletIds)
+            ->with('provider:id,logo')
+            ->get(['id', 'name', 'type', 'wallet_provider_id', 'custom_logo'])
+            ->keyBy('id');
+
+        $recentTransactions->transform(function ($item) use ($categoriesDict, $walletsDict) {
+            $item->category = $item->category_id ? $categoriesDict->get($item->category_id) : null;
+            $item->wallet = $item->wallet_id ? $walletsDict->get($item->wallet_id) : null;
+            $item->from_wallet = $item->from_wallet_id ? $walletsDict->get($item->from_wallet_id) : null;
+            $item->to_wallet = $item->to_wallet_id ? $walletsDict->get($item->to_wallet_id) : null;
+            return $item;
+        });
 
         $billItemQuery = BillItem::query()
             ->whereHas('billGroup', fn ($query) => $query->where('user_id', $user->id))

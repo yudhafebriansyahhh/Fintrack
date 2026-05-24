@@ -48,6 +48,44 @@ const walletIcon = (type) => {
     return 'wallet';
 };
 
+const walletLogo = (wallet) => wallet?.provider?.logo || wallet?.custom_logo || null;
+
+const activityAccent = (activity) => {
+    if (activity?.type === 'transfer') {
+        return {
+            chip: 'bg-sky-50 text-sky-700',
+            amount: 'text-sky-600',
+            sign: '',
+            icon: 'exchange',
+            label: 'Transfer',
+        };
+    }
+
+    return activity?.type === 'income'
+        ? {
+              chip: 'bg-emerald-50 text-emerald-700',
+              amount: 'text-emerald-600',
+              sign: '+',
+              icon: 'arrowDown',
+              label: 'Pemasukan',
+          }
+        : {
+              chip: 'bg-rose-50 text-rose-700',
+              amount: 'text-rose-600',
+              sign: '-',
+              icon: 'receipt',
+              label: 'Pengeluaran',
+          };
+};
+
+const activityTitle = (activity) => {
+    if (activity?.type === 'transfer') {
+        return activity.description?.trim() || 'Pindah saldo';
+    }
+
+    return activity?.description?.trim() || activity?.category?.name || 'Tanpa keterangan';
+};
+
 const normalizeChartRows = (rows) =>
     rows.map((row) => ({
         month: row.month,
@@ -376,14 +414,14 @@ export default function Dashboard({
                                     </div>
 
                                     <div>
-                                        <div className="relative h-52 overflow-hidden rounded-xl border border-slate-100 bg-white sm:h-64">
+                                        <div className="relative h-52 overflow-visible rounded-xl border border-slate-100 bg-white sm:h-64">
                                             <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-slate-200" />
                                             <div className="absolute inset-x-0 bottom-10 border-t border-dashed border-slate-200" />
                                             <div className="absolute inset-x-0 top-10 border-t border-dashed border-slate-200" />
 
                                             {chartHasData && chartRows.length > 0 && (
                                                 <svg
-                                                    className="pointer-events-none absolute inset-x-4 top-5 h-[42%] w-[calc(100%-2rem)] overflow-visible"
+                                                    className="pointer-events-none absolute inset-x-4 top-5 z-10 h-[42%] w-[calc(100%-2rem)] overflow-visible"
                                                     preserveAspectRatio="none"
                                                     viewBox="0 0 100 72"
                                                 >
@@ -409,7 +447,7 @@ export default function Dashboard({
                                             )}
 
                                             <div
-                                                className="absolute inset-x-3 bottom-4 grid h-[72%] items-end gap-2 sm:inset-x-5 sm:gap-3"
+                                                className="absolute inset-x-3 bottom-4 z-20 grid h-[72%] items-end gap-2 sm:inset-x-5 sm:gap-3"
                                                 style={{
                                                     gridTemplateColumns: `repeat(${Math.max(
                                                         chartRows.length,
@@ -457,7 +495,7 @@ export default function Dashboard({
                                                             />
                                                         </div>
 
-                                                        <div className="pointer-events-none absolute bottom-full mb-2 hidden min-w-36 rounded-xl border border-slate-200 bg-white p-3 text-left text-xs shadow-xl group-hover:block">
+                                                        <div className="pointer-events-none absolute bottom-full z-40 mb-2 hidden min-w-36 rounded-xl border border-slate-200 bg-white p-3 text-left text-xs shadow-xl group-hover:block">
                                                             <p className="font-semibold text-slate-950">
                                                                 {row.month}
                                                             </p>
@@ -629,34 +667,49 @@ export default function Dashboard({
 
                                     <tbody className="divide-y divide-slate-100">
                                         {recentTransactions.map((transaction) => {
-                                            const positive = transaction.type === 'income';
+                                            const accent = activityAccent(transaction);
 
                                             return (
                                                 <tr
-                                                    key={transaction.id}
+                                                    key={`${transaction.kind}-${transaction.id}`}
                                                     className="text-sm transition hover:bg-slate-50"
                                                 >
                                                     <td className="whitespace-nowrap px-4 py-3 text-slate-700 sm:px-6">
                                                         {formatDate(transaction.transaction_date)}
                                                     </td>
                                                     <td className="whitespace-nowrap px-4 py-3 text-slate-700 sm:px-6">
-                                                        {transaction.category?.name ?? '-'}
+                                                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${accent.chip}`}>
+                                                            <Icon name={accent.icon} className="h-3 w-3" />
+                                                            {accent.label}
+                                                        </span>
                                                     </td>
                                                     <td className="px-4 py-3 text-slate-700 sm:px-6">
-                                                        {transaction.description ?? '-'}
+                                                        {activityTitle(transaction)}
                                                     </td>
                                                     <td className="whitespace-nowrap px-4 py-3 text-slate-700 sm:px-6">
-                                                        {transaction.wallet?.name ?? '-'}
+                                                        {transaction.type === 'transfer' ? (
+                                                            <span className="inline-flex items-center gap-1.5 rounded-lg bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-600">
+                                                                {transaction.from_wallet?.name ?? '-'} ➔ {transaction.to_wallet?.name ?? '-'}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                                                                {walletLogo(transaction.wallet) ? (
+                                                                    <img
+                                                                        src={walletLogo(transaction.wallet)}
+                                                                        alt=""
+                                                                        className="h-4 w-4 object-contain"
+                                                                    />
+                                                                ) : (
+                                                                    <Icon name={walletIcon(transaction.wallet?.type)} className="h-3.5 w-3.5 text-slate-400" />
+                                                                )}
+                                                                {transaction.wallet?.name ?? '-'}
+                                                            </span>
+                                                        )}
                                                     </td>
                                                     <td
-                                                        className={`whitespace-nowrap px-4 py-3 text-right font-semibold sm:px-6 ${
-                                                            positive
-                                                                ? 'text-success'
-                                                                : 'text-slate-950'
-                                                        }`}
+                                                        className={`whitespace-nowrap px-4 py-3 text-right font-semibold sm:px-6 ${accent.amount}`}
                                                     >
-                                                        {positive ? '+' : '-'}{' '}
-                                                        {formatRupiah(transaction.amount)}
+                                                        {accent.sign}{formatRupiah(transaction.amount)}
                                                     </td>
                                                 </tr>
                                             );
@@ -707,11 +760,19 @@ export default function Dashboard({
                                                 : 'border-dashed border-slate-200 bg-slate-50 text-slate-500'
                                         }`}
                                     >
-                                        <span className="flex h-10 w-10 items-center justify-center rounded-md bg-primary-50 text-primary-700">
-                                            <Icon
-                                                name={walletIcon(wallet.type)}
-                                                className="h-5 w-5"
-                                            />
+                                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-700">
+                                            {walletLogo(wallet) ? (
+                                                <img
+                                                    src={walletLogo(wallet)}
+                                                    alt=""
+                                                    className="h-7 w-7 object-contain"
+                                                />
+                                            ) : (
+                                                <Icon
+                                                    name={walletIcon(wallet.type)}
+                                                    className="h-5 w-5"
+                                                />
+                                            )}
                                         </span>
 
                                         <div className="min-w-0 flex-1">

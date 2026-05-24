@@ -1,7 +1,11 @@
+import Autocomplete from '@/Components/Autocomplete';
+import DatePicker from '@/Components/DatePicker';
+import FormDropdown from '@/Components/FormDropdown';
 import Icon from '@/Components/Icon';
+import Modal from '@/Components/Modal';
 import PrimaryButton from '@/Components/PrimaryButton';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 
 const formatRupiah = (value) =>
@@ -52,6 +56,58 @@ const periodOptions = [
     { value: 'custom', label: 'Custom' },
 ];
 
+const typeOptions = [
+    { value: '', label: 'Semua tipe' },
+    { value: 'income', label: 'Pemasukan' },
+    { value: 'expense', label: 'Pengeluaran' },
+    { value: 'transfer', label: 'Transfer' },
+];
+
+const PER_PAGE_OPTIONS = [10, 25, 50, 100];
+
+const activityAccent = (activity) => {
+    if (activity?.type === 'transfer') {
+        return {
+            bubble: 'bg-sky-50 text-sky-600',
+            chip: 'bg-sky-50 text-sky-700',
+            amount: 'text-sky-600',
+            sign: '',
+            icon: 'exchange',
+            label: 'Transfer',
+        };
+    }
+
+    return activity?.type === 'income'
+        ? {
+              bubble: 'bg-emerald-50 text-emerald-600',
+              chip: 'bg-emerald-50 text-emerald-700',
+              amount: 'text-emerald-600',
+              sign: '+',
+              icon: 'arrowDown',
+              label: 'Pemasukan',
+          }
+        : {
+              bubble: 'bg-rose-50 text-rose-600',
+              chip: 'bg-rose-50 text-rose-700',
+              amount: 'text-rose-600',
+              sign: '-',
+              icon: 'receipt',
+              label: 'Pengeluaran',
+          };
+};
+
+const activityTitle = (activity) => {
+    if (activity?.type === 'transfer') {
+        return activity.description?.trim() || 'Pindah saldo';
+    }
+
+    return activity?.description?.trim() || activity?.category?.name || 'Tanpa keterangan';
+};
+
+const walletLogo = (wallet) => wallet?.provider?.logo || wallet?.custom_logo || null;
+
+const walletFallbackIcon = (type) => (type === 'bank' ? 'bank' : 'wallet');
+
 const PIE_PALETTE = [
     '#2563EB',
     '#0EA5E9',
@@ -100,14 +156,21 @@ const csvEscape = (value) => {
 const buildCsv = (transactions) => {
     const header = ['Tanggal', 'Tipe', 'Kategori', 'Dompet', 'Deskripsi', 'Nominal'];
 
-    const rows = transactions.map((transaction) => [
-        transaction.transaction_date ?? '',
-        transaction.type === 'income' ? 'Pemasukan' : 'Pengeluaran',
-        transaction.category?.name ?? '',
-        transaction.wallet?.name ?? '',
-        transaction.description ?? '',
-        Number(transaction.amount ?? 0),
-    ]);
+    const rows = transactions.map((transaction) => {
+        const accent = activityAccent(transaction);
+        const walletName = transaction.type === 'transfer'
+            ? `${transaction.from_wallet?.name ?? '-'} -> ${transaction.to_wallet?.name ?? '-'}`
+            : transaction.wallet?.name ?? '';
+
+        return [
+            transaction.transaction_date ?? '',
+            accent.label,
+            transaction.type === 'transfer' ? 'Transfer' : transaction.category?.name ?? '',
+            walletName,
+            transaction.description ?? '',
+            `${accent.sign}${Number(transaction.amount ?? 0)}`,
+        ];
+    });
 
     return [header, ...rows].map((row) => row.map(csvEscape).join(',')).join('\n');
 };
@@ -989,6 +1052,32 @@ function WalletBars({ rows }) {
     );
 }
 
+function DetailRow({ label, value }) {
+    return (
+        <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+            <dt className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                {label}
+            </dt>
+            <dd className="mt-1 text-sm font-semibold text-slate-800">{value}</dd>
+        </div>
+    );
+}
+
+function WalletName({ wallet }) {
+    const logo = walletLogo(wallet);
+
+    return (
+        <span className="inline-flex items-center gap-1.5">
+            {logo ? (
+                <img src={logo} alt="" className="h-4 w-4 object-contain" />
+            ) : (
+                <Icon name={walletFallbackIcon(wallet?.type)} className="h-3.5 w-3.5 text-slate-400" />
+            )}
+            {wallet?.name ?? '-'}
+        </span>
+    );
+}
+
 function BillSummary({ label, data, tone, accent, highlight }) {
     return (
         <div
@@ -1019,21 +1108,29 @@ export default function Index({
     byCategory = [],
     byWallet = [],
     dailyTrend = [],
-    transactions = [],
+    transactions = {},
     bills,
     categories = [],
+    wallets = [],
 }) {
     const { flash } = usePage().props;
 
     const [filterOpen, setFilterOpen] = useState(false);
+    const [detailTransaction, setDetailTransaction] = useState(null);
 
     const [draft, setDraft] = useState(() => ({
         period: filters?.period ?? 'monthly',
         from: filters?.from ?? '',
         to: filters?.to ?? '',
         category_id: filters?.category_id ?? '',
+        wallet_id: filters?.wallet_id ?? '',
         type: filters?.type ?? '',
+        search: filters?.search ?? '',
     }));
+
+    const transactionRows = transactions?.data ?? [];
+    const perPage = Number(filters?.per_page ?? PER_PAGE_OPTIONS[0]);
+    const detailAccent = detailTransaction ? activityAccent(detailTransaction) : null;
 
     const expenseCategories = useMemo(
         () => byCategory.filter((category) => category.type === 'expense'),
@@ -1125,23 +1222,36 @@ export default function Index({
             draft.from ||
             draft.to ||
             draft.category_id ||
-            draft.type,
+            draft.wallet_id ||
+            draft.type ||
+            draft.search,
     );
 
-    const submit = (event) => {
-        event.preventDefault();
+    const buildQuery = (overrides = {}) => {
+        const merged = {
+            ...draft,
+            per_page: perPage,
+            ...overrides,
+        };
 
-        const params = Object.fromEntries(
-            Object.entries(draft).filter(
-                ([, value]) => value !== '' && value !== null,
+        return Object.fromEntries(
+            Object.entries(merged).filter(
+                ([, value]) => value !== '' && value !== null && value !== undefined,
             ),
         );
+    };
 
+    const navigate = (params) => {
         router.get(route('reports.index'), params, {
             preserveScroll: true,
             preserveState: true,
             replace: true,
         });
+    };
+
+    const submit = (event) => {
+        event.preventDefault();
+        navigate(buildQuery());
     };
 
     const reset = () => {
@@ -1150,29 +1260,30 @@ export default function Index({
             from: '',
             to: '',
             category_id: '',
+            wallet_id: '',
             type: '',
+            search: '',
         };
 
         setDraft(fresh);
+        navigate({ per_page: perPage });
+    };
 
-        router.get(
-            route('reports.index'),
-            {},
-            {
-                preserveScroll: true,
-                preserveState: true,
-                replace: true,
-            },
-        );
+    const onPerPageChange = (value) => {
+        navigate(buildQuery({ per_page: value }));
     };
 
     const handleExport = () => {
-        if (!transactions.length) return;
+        if (!transactionRows.length) return;
 
         const filename = `fintrack-laporan-${meta?.from ?? 'periode'}_${meta?.to ?? ''}.csv`;
 
-        downloadCsv(filename, buildCsv(transactions));
+        downloadCsv(filename, buildCsv(transactionRows));
     };
+
+    const transactionMeta = transactions?.from && transactions?.to
+        ? `Menampilkan ${transactions.from}-${transactions.to} dari ${transactions.total} aktivitas.`
+        : `Total ${transactions?.total ?? 0} aktivitas.`;
 
     return (
         <AuthenticatedLayout
@@ -1254,7 +1365,7 @@ export default function Index({
                                 <button
                                     type="button"
                                     onClick={handleExport}
-                                    disabled={!transactions.length}
+                                    disabled={!transactionRows.length}
                                     className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-primary-200 hover:text-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     <Icon name="download" className="h-4 w-4" />
@@ -1274,87 +1385,107 @@ export default function Index({
 
                         <form
                             onSubmit={submit}
-                            className={`gap-3 px-5 py-5 sm:px-6 md:grid-cols-3 lg:grid lg:grid-cols-6 ${
+                            className={`gap-3 px-5 py-5 sm:px-6 md:grid-cols-3 lg:grid lg:grid-cols-8 ${
                                 filterOpen ? 'grid' : 'hidden lg:grid'
                             }`}
                         >
-                            <select
-                                className="rounded-2xl border-slate-300 text-sm focus:border-primary-500 focus:ring-primary-500"
+                            <FormDropdown
                                 value={draft.period}
-                                onChange={(event) =>
+                                onChange={(value) =>
                                     setDraft((current) => ({
                                         ...current,
-                                        period: event.target.value,
+                                        period: value,
                                     }))
                                 }
-                            >
-                                {periodOptions.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                        {option.label}
-                                    </option>
-                                ))}
-                            </select>
+                                placeholder="Pilih periode"
+                                options={periodOptions}
+                            />
 
-                            <input
-                                type="date"
-                                className="rounded-2xl border-slate-300 text-sm focus:border-primary-500 focus:ring-primary-500"
+                            <DatePicker
                                 value={draft.from}
-                                onChange={(event) =>
+                                onChange={(value) =>
                                     setDraft((current) => ({
                                         ...current,
-                                        from: event.target.value,
+                                        from: value,
                                         period: 'custom',
                                     }))
                                 }
+                                placeholder="Dari tanggal"
+                            />
+
+                            <DatePicker
+                                value={draft.to}
+                                onChange={(value) =>
+                                    setDraft((current) => ({
+                                        ...current,
+                                        to: value,
+                                        period: 'custom',
+                                    }))
+                                }
+                                placeholder="Sampai tanggal"
+                            />
+
+                            <FormDropdown
+                                value={draft.type}
+                                onChange={(value) =>
+                                    setDraft((current) => ({
+                                        ...current,
+                                        type: value,
+                                    }))
+                                }
+                                placeholder="Semua tipe"
+                                options={typeOptions}
+                            />
+
+                            <Autocomplete
+                                value={draft.category_id}
+                                onChange={(value) =>
+                                    setDraft((current) => ({
+                                        ...current,
+                                        category_id: value,
+                                    }))
+                                }
+                                options={[{ id: '', name: 'Semua kategori' }, ...categories]}
+                                getOptionLabel={(category) =>
+                                    category.id === ''
+                                        ? category.name
+                                        : `${category.name} (${category.type === 'income' ? 'pemasukan' : 'pengeluaran'})`
+                                }
+                                getOptionValue={(category) => category.id}
+                                placeholder="Semua kategori"
+                                emptyText="Kategori tidak ditemukan."
+                                leadingIcon="filter"
+                            />
+
+                            <Autocomplete
+                                value={draft.wallet_id}
+                                onChange={(value) =>
+                                    setDraft((current) => ({
+                                        ...current,
+                                        wallet_id: value,
+                                    }))
+                                }
+                                options={[{ id: '', name: 'Semua dompet' }, ...wallets]}
+                                getOptionLabel={(wallet) => wallet.name}
+                                getOptionValue={(wallet) => wallet.id}
+                                getOptionImage={(wallet) => walletLogo(wallet)}
+                                placeholder="Semua dompet"
+                                emptyText="Dompet tidak ditemukan."
+                                leadingIcon="wallet"
                             />
 
                             <input
-                                type="date"
-                                className="rounded-2xl border-slate-300 text-sm focus:border-primary-500 focus:ring-primary-500"
-                                value={draft.to}
+                                type="search"
+                                className="rounded-2xl border-slate-200 bg-slate-50 text-sm font-bold text-slate-800 placeholder:text-slate-400 focus:border-primary-500 focus:bg-white focus:ring-primary-100"
+                                placeholder="Cari deskripsi"
+                                value={draft.search}
                                 onChange={(event) =>
                                     setDraft((current) => ({
                                         ...current,
-                                        to: event.target.value,
-                                        period: 'custom',
+                                        search: event.target.value,
                                     }))
                                 }
                             />
-
-                            <select
-                                className="rounded-2xl border-slate-300 text-sm focus:border-primary-500 focus:ring-primary-500"
-                                value={draft.type}
-                                onChange={(event) =>
-                                    setDraft((current) => ({
-                                        ...current,
-                                        type: event.target.value,
-                                    }))
-                                }
-                            >
-                                <option value="">Semua tipe</option>
-                                <option value="income">Pemasukan</option>
-                                <option value="expense">Pengeluaran</option>
-                            </select>
-
-                            <select
-                                className="rounded-2xl border-slate-300 text-sm focus:border-primary-500 focus:ring-primary-500"
-                                value={draft.category_id}
-                                onChange={(event) =>
-                                    setDraft((current) => ({
-                                        ...current,
-                                        category_id: event.target.value,
-                                    }))
-                                }
-                            >
-                                <option value="">Semua kategori</option>
-
-                                {categories.map((category) => (
-                                    <option key={category.id} value={category.id}>
-                                        {category.name}{' '}
-                                        ({category.type === 'income' ? 'pemasukan' : 'pengeluaran'})
-                                    </option>
-                                ))}
-                            </select>
 
                             <button
                                 type="submit"
@@ -1664,11 +1795,28 @@ export default function Index({
                                 </h2>
 
                                 <p className="text-sm text-slate-500">
-                                    {transactions.length} transaksi pada periode ini.
+                                    {transactionMeta}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-400">
+                                    Klik baris untuk melihat detail aktivitas.
                                 </p>
                             </div>
 
-                            <div className="flex flex-wrap gap-2 text-xs">
+                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                                <div className="flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600">
+                                    <span>Per halaman</span>
+                                    <FormDropdown
+                                        className="w-24"
+                                        buttonClassName="px-3 py-1.5 text-xs rounded-xl"
+                                        value={String(perPage)}
+                                        onChange={onPerPageChange}
+                                        options={PER_PAGE_OPTIONS.map((option) => ({
+                                            value: String(option),
+                                            label: String(option),
+                                        }))}
+                                    />
+                                </div>
+
                                 <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 font-semibold text-success">
                                     + {formatRupiah(totalIncome)}
                                 </span>
@@ -1693,13 +1841,14 @@ export default function Index({
                                 </thead>
 
                                 <tbody className="divide-y divide-slate-100">
-                                    {transactions.map((transaction) => {
-                                        const positive = transaction.type === 'income';
+                                    {transactionRows.map((transaction) => {
+                                        const accent = activityAccent(transaction);
 
                                         return (
                                             <tr
-                                                key={transaction.id}
-                                                className="text-sm transition hover:bg-slate-50"
+                                                key={`${transaction.kind}-${transaction.id}`}
+                                                onClick={() => setDetailTransaction(transaction)}
+                                                className="cursor-pointer text-sm transition hover:bg-primary-50/40"
                                             >
                                                 <td className="whitespace-nowrap px-4 py-3 text-slate-700">
                                                     {formatDate(transaction.transaction_date)}
@@ -1707,43 +1856,45 @@ export default function Index({
 
                                                 <td className="whitespace-nowrap px-4 py-3 text-xs">
                                                     <span
-                                                        className={`rounded-full px-2.5 py-1 font-semibold uppercase ${
-                                                            positive
-                                                                ? 'bg-emerald-50 text-success'
-                                                                : 'bg-rose-50 text-danger'
-                                                        }`}
+                                                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-bold uppercase tracking-wide ${accent.chip}`}
                                                     >
-                                                        {positive ? 'Pemasukan' : 'Pengeluaran'}
+                                                        <Icon name={accent.icon} className="h-3 w-3" />
+                                                        {accent.label}
                                                     </span>
                                                 </td>
 
                                                 <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                                                    {transaction.category?.name ?? '-'}
+                                                    {transaction.type === 'transfer'
+                                                        ? 'Transfer'
+                                                        : transaction.category?.name ?? '-'}
                                                 </td>
 
                                                 <td className="whitespace-nowrap px-4 py-3 text-slate-700">
-                                                    {transaction.wallet?.name ?? '-'}
+                                                    {transaction.type === 'transfer' ? (
+                                                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-600">
+                                                            {transaction.from_wallet?.name ?? '-'} ➔ {transaction.to_wallet?.name ?? '-'}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                                                            <WalletName wallet={transaction.wallet} />
+                                                        </span>
+                                                    )}
                                                 </td>
 
                                                 <td className="px-4 py-3 text-slate-700">
-                                                    {transaction.description ?? '-'}
+                                                    {activityTitle(transaction)}
                                                 </td>
 
                                                 <td
-                                                    className={`whitespace-nowrap px-4 py-3 text-right font-semibold ${
-                                                        positive
-                                                            ? 'text-success'
-                                                            : 'text-slate-950'
-                                                    }`}
+                                                    className={`whitespace-nowrap px-4 py-3 text-right font-bold ${accent.amount}`}
                                                 >
-                                                    {positive ? '+' : '-'}{' '}
-                                                    {formatRupiah(transaction.amount)}
+                                                    {accent.sign}{formatRupiah(transaction.amount)}
                                                 </td>
                                             </tr>
                                         );
                                     })}
 
-                                    {transactions.length === 0 && (
+                                    {transactionRows.length === 0 && (
                                         <tr>
                                             <td
                                                 colSpan={6}
@@ -1762,9 +1913,109 @@ export default function Index({
                                 </tbody>
                             </table>
                         </div>
+
+                        {transactions?.links?.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1 border-t border-slate-100 px-5 py-4 text-sm">
+                                {transactions.links.map((link, index) => (
+                                    <Link
+                                        key={`${link.label}-${index}`}
+                                        href={link.url ?? ''}
+                                        preserveScroll
+                                        preserveState
+                                        className={`rounded-xl px-3 py-1.5 font-bold ${
+                                            link.active
+                                                ? 'bg-primary-600 text-white'
+                                                : link.url
+                                                  ? 'text-slate-600 hover:bg-slate-100'
+                                                  : 'text-slate-300'
+                                        }`}
+                                        dangerouslySetInnerHTML={{ __html: link.label }}
+                                    />
+                                ))}
+                            </div>
+                        )}
                     </section>
                 </div>
             </div>
+
+            <Modal show={Boolean(detailTransaction)} maxWidth="md" onClose={() => setDetailTransaction(null)}>
+                {detailTransaction && detailAccent && (
+                    <div className="overflow-hidden rounded-2xl bg-white">
+                        <div className="border-b border-slate-100 bg-gradient-to-br from-primary-50 via-white to-sky-50 px-5 py-5 sm:px-6">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="flex min-w-0 items-start gap-3">
+                                    <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${detailAccent.bubble}`}>
+                                        <Icon name={detailAccent.icon} className="h-5 w-5" />
+                                    </span>
+
+                                    <div className="min-w-0">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                            {detailAccent.label}
+                                        </p>
+                                        <h2 className="truncate text-lg font-bold text-slate-950">
+                                            {activityTitle(detailTransaction)}
+                                        </h2>
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setDetailTransaction(null)}
+                                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                                    aria-label="Tutup detail"
+                                >
+                                    <Icon name="x" className="h-4 w-4" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-5 px-5 py-5 sm:px-6">
+                            <div className="rounded-2xl bg-primary-50/70 px-5 py-4 text-center">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-primary-700">
+                                    Nominal
+                                </p>
+                                <p className={`mt-1 break-words text-3xl font-bold ${detailAccent.amount}`}>
+                                    {detailAccent.sign}{formatRupiah(detailTransaction.amount)}
+                                </p>
+                            </div>
+
+                            <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                                {detailTransaction.type === 'transfer' ? (
+                                    <>
+                                        <DetailRow label="Dompet Asal" value={<WalletName wallet={detailTransaction.from_wallet} />} />
+                                        <DetailRow label="Dompet Tujuan" value={<WalletName wallet={detailTransaction.to_wallet} />} />
+                                    </>
+                                ) : (
+                                    <>
+                                        <DetailRow label="Kategori" value={detailTransaction.category?.name ?? '-'} />
+                                        <DetailRow label="Dompet" value={<WalletName wallet={detailTransaction.wallet} />} />
+                                    </>
+                                )}
+
+                                <DetailRow label="Tanggal" value={formatDate(detailTransaction.transaction_date)} />
+                                <DetailRow label="Tipe" value={detailAccent.label} />
+
+                                <div className="sm:col-span-2">
+                                    <DetailRow
+                                        label="Deskripsi"
+                                        value={detailTransaction.description?.trim() || 'Tidak ada catatan tambahan.'}
+                                    />
+                                </div>
+                            </dl>
+                        </div>
+
+                        <div className="border-t border-slate-100 bg-slate-50 px-5 py-4 text-right sm:px-6">
+                            <Link
+                                href={route('transactions.index')}
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-primary-700"
+                            >
+                                <Icon name="filter" className="h-4 w-4" />
+                                Kelola di halaman transaksi
+                            </Link>
+                        </div>
+                    </div>
+                )}
+            </Modal>
         </AuthenticatedLayout>
     );
 }
