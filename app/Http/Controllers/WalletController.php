@@ -49,6 +49,17 @@ class WalletController extends Controller
         ]);
     }
 
+    public function showByQuery(Request $request): Response
+    {
+        $data = $request->validate([
+            'id' => ['required', 'integer'],
+        ]);
+
+        $wallet = Wallet::query()->findOrFail($data['id']);
+
+        return $this->show($request, $wallet);
+    }
+
     public function show(Request $request, Wallet $wallet): Response
     {
         $this->authorize('view', $wallet);

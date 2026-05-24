@@ -500,16 +500,21 @@ export default function Show({
         });
     };
 
+    const walletDetailUrl = (params = {}) => route('wallets.show-query', {
+        id: wallet.id,
+        ...params,
+    });
+
     const goToPeriod = (key) => {
         router.get(
-            route('wallets.show', wallet.id),
-            { period: key, anchor: period.anchor },
+            walletDetailUrl({ period: key, anchor: period.anchor }),
+            {},
             { preserveScroll: true, preserveState: false },
         );
     };
 
     const stepPeriod = (target) => {
-        router.get(route('wallets.show', wallet.id), target, {
+        router.get(walletDetailUrl(target), {}, {
             preserveScroll: true,
             preserveState: false,
         });

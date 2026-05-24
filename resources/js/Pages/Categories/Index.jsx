@@ -237,7 +237,7 @@ export default function Index({ categories }) {
         });
         if (!confirmed) return;
 
-        form.delete(route("categories.destroy", editingCategory.id), {
+        router.post(route("categories.destroy-request"), { id: editingCategory.id }, {
             preserveScroll: true,
             onSuccess: () => {
                 toastSuccess("Kategori dihapus");

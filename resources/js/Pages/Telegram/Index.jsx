@@ -286,8 +286,8 @@ export default function Index({
                         </div>
                     </section>
 
-                    <section className="grid gap-6 xl:grid-cols-2 xl:items-stretch">
-                        <div className="surface-card flex flex-col">
+                    <section className="grid items-stretch gap-6 xl:grid-cols-2">
+                        <div className="surface-card flex h-full flex-col">
                             <div className="border-b border-slate-100 px-6 py-4">
                                 <h2 className="text-lg font-semibold text-slate-950">Perintah yang didukung</h2>
                                 <p className="text-sm text-slate-500">Kirim pesan ke {botLabel} dengan format berikut.</p>
@@ -305,55 +305,57 @@ export default function Index({
                             </ul>
                         </div>
 
-                        <div className="surface-card flex flex-col">
+                        <div className="surface-card flex h-full flex-col">
                             <div className="border-b border-slate-100 px-6 py-4">
                                 <h2 className="text-lg font-semibold text-slate-950">Log Pesan Telegram</h2>
                                 <p className="text-sm text-slate-500">20 pesan Telegram terbaru untuk akun Anda.</p>
                             </div>
-                            <div className="flex-1 overflow-y-auto" style={{ maxHeight: '32rem' }}>
-                                <table className="min-w-full divide-y divide-slate-100">
-                                    <thead className="sticky top-0 z-10 bg-slate-50 text-left text-[11px] font-semibold uppercase text-slate-500">
-                                        <tr>
-                                            <th className="px-4 py-3">Waktu</th>
-                                            <th className="px-4 py-3">Arah</th>
-                                            <th className="px-4 py-3">Status</th>
-                                            <th className="px-4 py-3">Pesan</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {messages.map((message) => (
-                                            <tr key={message.id} className="hover:bg-slate-50">
-                                                <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-700">
-                                                    {formatDateTime(message.created_at)}
-                                                </td>
-                                                <td className="whitespace-nowrap px-4 py-3 text-xs">
-                                                    <span
-                                                        className={`rounded-full px-2 py-1 font-semibold uppercase ${
-                                                            message.direction === 'inbound'
-                                                                ? 'bg-blue-50 text-primary-700'
-                                                                : 'bg-emerald-50 text-success'
-                                                        }`}
-                                                    >
-                                                        {message.direction === 'inbound' ? 'Masuk' : 'Keluar'}
-                                                    </span>
-                                                </td>
-                                                <td className="whitespace-nowrap px-4 py-3 text-xs uppercase text-slate-500">
-                                                    {message.status ?? '-'}
-                                                </td>
-                                                <td className="px-4 py-3 text-sm text-slate-700">
-                                                    <span className="line-clamp-2 break-words">{message.message}</span>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {messages.length === 0 && (
+                            <div className="relative flex-1 min-h-[300px]">
+                                <div className="absolute inset-0 overflow-y-auto">
+                                    <table className="min-w-full divide-y divide-slate-100">
+                                        <thead className="sticky top-0 z-10 bg-slate-50 text-left text-[11px] font-semibold uppercase text-slate-500">
                                             <tr>
-                                                <td colSpan={4} className="px-4 py-10 text-center text-sm text-slate-500">
-                                                    Belum ada log pesan Telegram.
-                                                </td>
+                                                <th className="px-4 py-3">Waktu</th>
+                                                <th className="px-4 py-3">Arah</th>
+                                                <th className="px-4 py-3">Status</th>
+                                                <th className="px-4 py-3">Pesan</th>
                                             </tr>
-                                        )}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {messages.map((message) => (
+                                                <tr key={message.id} className="hover:bg-slate-50">
+                                                    <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-700">
+                                                        {formatDateTime(message.created_at)}
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-4 py-3 text-xs">
+                                                        <span
+                                                            className={`rounded-full px-2 py-1 font-semibold uppercase ${
+                                                                message.direction === 'inbound'
+                                                                    ? 'bg-blue-50 text-primary-700'
+                                                                    : 'bg-emerald-50 text-success'
+                                                            }`}
+                                                        >
+                                                            {message.direction === 'inbound' ? 'Masuk' : 'Keluar'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="whitespace-nowrap px-4 py-3 text-xs uppercase text-slate-500">
+                                                        {message.status ?? '-'}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-slate-700">
+                                                        <span className="line-clamp-2 break-words">{message.message}</span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {messages.length === 0 && (
+                                                <tr>
+                                                    <td colSpan={4} className="px-4 py-10 text-center text-sm text-slate-500">
+                                                        Belum ada log pesan Telegram.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     </section>

@@ -30,12 +30,14 @@ Route::get('/', function () {
 Route::get('/dashboard', DashboardController::class)->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
+    Route::get('/wallet-detail', [WalletController::class, 'showByQuery'])->name('wallets.show-query');
     Route::resource('wallets', WalletController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
     Route::patch('/wallets/{wallet}/balance', [WalletController::class, 'updateBalance'])->name('wallets.balance');
     Route::post('/wallet-providers', [WalletProviderController::class, 'store'])->name('wallet-providers.store');
     Route::post('/wallet-transfers', [WalletTransferController::class, 'store'])->name('wallet-transfers.store');
 
     Route::resource('categories', CategoryController::class)->only(['index', 'store', 'update', 'destroy']);
+    Route::post('/category-delete', [CategoryController::class, 'destroyByRequest'])->name('categories.destroy-request');
     Route::post('/categories/seed-defaults', [CategoryController::class, 'seedDefaults'])->name('categories.seed-defaults');
 
     Route::resource('transactions', TransactionController::class)->only(['index', 'store', 'update', 'destroy']);

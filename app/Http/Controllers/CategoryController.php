@@ -43,6 +43,17 @@ class CategoryController extends Controller
         return back()->with('success', 'Kategori berhasil diperbarui.');
     }
 
+    public function destroyByRequest(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'id' => ['required', 'integer'],
+        ]);
+
+        $category = Category::query()->findOrFail($data['id']);
+
+        return $this->destroy($category);
+    }
+
     public function destroy(Category $category): RedirectResponse
     {
         $this->authorize('delete', $category);

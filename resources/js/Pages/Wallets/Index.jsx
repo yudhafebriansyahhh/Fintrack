@@ -851,7 +851,7 @@ function WalletCard({ wallet }) {
 
     return (
         <Link
-            href={route("wallets.show", wallet.id)}
+            href={route("wallets.show-query", { id: wallet.id })}
             className={`group flex items-center gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${config.border} ${
                 !wallet.is_active ? "opacity-60" : ""
             }`}
