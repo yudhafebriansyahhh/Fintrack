@@ -500,10 +500,10 @@ export default function Show({
         });
     };
 
-    const walletDetailUrl = (params = {}) => route('wallets.show-query', {
-        id: wallet.id,
-        ...params,
-    });
+    const walletDetailUrl = (params = {}) => {
+        const query = new URLSearchParams({ id: wallet.id, ...params });
+        return `/wallet-detail?${query.toString()}`;
+    };
 
     const goToPeriod = (key) => {
         router.get(
